@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, View, type GestureResponderEvent } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, View, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import type { Grid, PaletteColor } from '../lib/types';
 import type { WorkOrder } from '../lib/workOrder';
@@ -124,6 +124,28 @@ export function GridView({ grid, palette, order, cellSize, done = 0, currentCell
   const lastRow = currentCell != null ? Math.floor(currentCell / cols) : null;
   const lastCol = currentCell != null ? currentCell % cols : null;
 
+  // mantém o ponto atual à vista: gráficos grandes começam pela base, fora da tela
+  const vScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const hScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const offset = useRef({ x: 0, y: 0 });
+  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    if (lastRow == null || lastCol == null || !viewport) return;
+    const margin = cellSize * 2;
+    const cx = gutter + lastCol * cellSize;
+    const cy = gutter + lastRow * cellSize;
+    const hiddenX = cx - margin < offset.current.x || cx + cellSize + margin > offset.current.x + viewport.width;
+    const hiddenY = cy - margin < offset.current.y || cy + cellSize + margin > offset.current.y + viewport.height;
+    if (hiddenX) hScroll.current?.scrollTo({ x: Math.max(0, cx + cellSize / 2 - viewport.width / 2), animated: true });
+    if (hiddenY) vScroll.current?.scrollTo({ y: Math.max(0, cy + cellSize / 2 - viewport.height / 2), animated: true });
+  }, [lastRow, lastCol, cellSize, gutter, viewport]);
+  const onScrollX = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offset.current.x = e.nativeEvent.contentOffset.x;
+  };
+  const onScrollY = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    offset.current.y = e.nativeEvent.contentOffset.y;
+  };
+
   const handlePress = (e: GestureResponderEvent) => {
     if (!onCellPress) return;
     // no aparelho o toque traz locationX/Y; no navegador (build web) o clique traz offsetX/Y
@@ -136,8 +158,15 @@ export function GridView({ grid, palette, order, cellSize, done = 0, currentCell
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-      <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}>
+    <ScrollView
+      ref={vScroll}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      onScroll={onScrollY}
+      scrollEventThrottle={32}
+      onLayout={(e) => setViewport({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+    >
+      <ScrollView ref={hScroll} horizontal contentContainerStyle={{ flexGrow: 1 }} onScroll={onScrollX} scrollEventThrottle={32}>
         <Pressable onPress={handlePress} style={{ width, height }}>
           <View pointerEvents="none">
             <Svg width={width} height={height}>

@@ -70,6 +70,11 @@ export interface PositionInfo {
   runsInRow: number;
   /** próximos blocos de cor da carreira (após o atual) */
   upcomingRuns: ColorRun[];
+  /**
+   * próximo bloco de cor a trabalhar: o seguinte na carreira ou, no último bloco, o primeiro da
+   * carreira seguinte (`inNextRow`). null no fim do gráfico.
+   */
+  nextRun: (ColorRun & { inNextRow: boolean }) | null;
   /** ponto global na ordem de trabalho (1-based) */
   overallStitch: number;
   totalStitches: number;
@@ -85,6 +90,10 @@ export function positionInfo(g: Grid, order: WorkOrder, cell: number): PositionI
   const runs = placedRuns(g, row);
   const runIdx = runs.findIndex((r) => k >= r.start && k < r.start + r.length);
   const run = runs[runIdx];
+
+  const following = runs[runIdx + 1];
+  const firstOfNextRow = row.workRow < order.totalRows ? placedRuns(g, order.row(row.workRow + 1))[0] : undefined;
+  const next = following ?? firstOfNextRow;
 
   return {
     cell,
@@ -105,6 +114,7 @@ export function positionInfo(g: Grid, order: WorkOrder, cell: number): PositionI
     runIndex: runIdx + 1,
     runsInRow: runs.length,
     upcomingRuns: runs.slice(runIdx + 1).map((r) => ({ colorId: r.colorId, length: r.length })),
+    nextRun: next ? { colorId: next.colorId, length: next.length, inNextRow: !following } : null,
     overallStitch: workIndex + 1,
     totalStitches: order.totalStitches,
   };

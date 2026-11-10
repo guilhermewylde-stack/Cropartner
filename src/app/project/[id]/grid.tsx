@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProject, useProjects } from '../../../store/projects';
 import { GridView } from '../../../components/GridView';
@@ -34,6 +35,7 @@ export default function GridScreen() {
   const [history, setHistory] = useState(() => emptyHistory<Snapshot>());
   const usage = useMemoUsage(project?.grid);
   const order = useWorkOrder(project);
+  useKeepAwake(); // mãos ocupadas: a tela não apaga enquanto o grid está aberto
 
   if (!project || !project.grid || !order) {
     return (
@@ -46,7 +48,6 @@ export default function GridScreen() {
   const grid = project.grid;
 
   const done = clampProgress(order, project.progress ?? 0);
-  const total = order.totalStitches;
   const finished = isFinished(order, done);
 
   const commit = (patch: Partial<Snapshot>) => {
@@ -109,6 +110,7 @@ export default function GridScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Stack.Screen options={{ title: project.name }} />
       <View style={st.toolbar}>
         <View style={{ flex: 1 }}>
           <Segmented
@@ -126,23 +128,18 @@ export default function GridScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} done={mode === 'progress' ? done : 0} currentCell={mode === 'progress' ? lastDoneCell(order, done) : null} onCellPress={onCellPress} />
+        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} done={mode === 'progress' ? done : 0} currentCell={mode === 'progress' ? (lastDoneCell(order, done) ?? nextCell) : null} onCellPress={onCellPress} />
       </View>
 
       <View style={[st.panel, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
         {mode === 'progress' ? (
           <>
-            <PositionPanel project={project} order={order} cell={lastDoneCell(order, done)} />
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Muted>
-                {done}/{total} pontos ({total ? Math.round((done / total) * 100) : 0}%)
-              </Muted>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} />
-            </Row>
+            <PositionPanel grid={grid} palette={project.palette} order={order} done={done} />
             <View style={st.secondary}>
-              <Button small variant="secondary" title="−1" onPress={() => setProgress(stepBack(done))} disabled={done === 0} style={st.secondaryBtn} />
-              <Button small variant="secondary" title="+1" onPress={() => go('stitch')} disabled={finished} style={st.secondaryBtn} />
-              <Button small variant="secondary" title="Fim da carreira" onPress={() => go('row')} disabled={finished} style={[st.secondaryBtn, { flex: 2 }]} />
+              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} style={[st.secondaryBtn, { flex: 1.1 }]} />
+              <Button small variant="secondary" title="−1" onPress={() => setProgress(stepBack(done))} disabled={done === 0} style={[st.secondaryBtn, { flex: 0.7 }]} />
+              <Button small variant="secondary" title="+1" onPress={() => go('stitch')} disabled={finished} style={[st.secondaryBtn, { flex: 0.7 }]} />
+              <Button small variant="secondary" title="Fim da carreira" onPress={() => go('row')} disabled={finished} style={[st.secondaryBtn, { flex: 1.8 }]} />
             </View>
             <Pressable
               accessibilityRole="button"
@@ -244,47 +241,76 @@ function useMemoUsage(grid: Grid | undefined) {
   }, [cells]);
 }
 
-/** Mostra onde está o ponto atual, para não precisar contar no meio da carreira. */
-function PositionPanel({ project, order, cell }: { project: Project; order: WorkOrder; cell: number | null }) {
-  const grid = project.grid!;
-  if (cell == null) {
-    return <Muted>Toque numa célula (ou num dos botões) para começar. A posição do ponto atual aparece aqui.</Muted>;
-  }
-  const p = positionInfo(grid, order, cell);
-  const byId = new Map(project.palette.map((c) => [c.id, c]));
-  const color = p.colorId ? byId.get(p.colorId) : undefined;
+const ARROW = { ltr: '→', rtl: '←' } as const;
+
+/**
+ * Painel compacto: onde está o último ponto feito, para não precisar contar no meio da carreira.
+ * Todos os números vêm de `positionInfo`.
+ */
+function PositionPanel({ grid, palette, order, done }: { grid: Grid; palette: PaletteColor[]; order: WorkOrder; done: number }) {
+  const byId = new Map(palette.map((c) => [c.id, c]));
   const nameOf = (cid: string | null) => (cid ? byId.get(cid)?.name ?? '?' : 'vazio');
-  const upcoming = p.upcomingRuns.slice(0, 4);
+  const hexOf = (cid: string | null) => (cid ? byId.get(cid)?.hex : undefined) ?? '#fff';
+  const percent = order.totalStitches ? Math.round((done / order.totalStitches) * 100) : 0;
+  const last = lastDoneCell(order, done);
+
+  if (last == null) {
+    // nada feito ainda: por onde começar
+    const first = positionInfo(grid, order, order.cellAt(0));
+    return (
+      <View style={st.pos}>
+        <View style={st.posTop}>
+          <Text style={st.posRow}>
+            Carreira 1 de {first.totalRows} <Text style={st.posArrow}>{ARROW[first.direction]}</Text>
+          </Text>
+          <Text style={st.posPct}>0%</Text>
+        </View>
+        <Text style={st.posStitch}>Comece {first.direction === 'rtl' ? 'pela direita' : 'pela esquerda'}</Text>
+        <View style={st.posColor}>
+          <View style={[st.swatch, { backgroundColor: hexOf(first.colorId) }]} />
+          <Text style={st.posColorText} numberOfLines={1}>
+            <Text style={st.bold}>
+              {first.runLength} {nameOf(first.colorId)}
+            </Text>
+            {first.nextRun ? ` → depois ${first.nextRun.inNextRow ? '(carreira 2) ' : ''}${first.nextRun.length} ${nameOf(first.nextRun.colorId)}` : ''}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const p = positionInfo(grid, order, last);
   return (
-    <View style={{ gap: 4 }}>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Title>
-          Carreira {p.workRow}/{p.totalRows}
-        </Title>
-        <Text style={st.dir}>{p.direction === 'ltr' ? 'esquerda → direita' : 'direita → esquerda'}</Text>
-      </Row>
-      <Text style={st.big}>
+    <View style={st.pos}>
+      <View style={st.posTop}>
+        <Text style={st.posRow}>
+          Carreira {p.workRow} de {p.totalRows} <Text style={st.posArrow}>{ARROW[p.direction]}</Text>
+        </Text>
+        <Text style={st.posPct}>
+          {done}/{order.totalStitches} · {percent}%
+        </Text>
+      </View>
+      <Text style={st.posStitch}>
         Ponto {p.stitchInRow} de {p.stitchesInRow}
-        <Text style={st.small}> · faltam {p.remainingInRow} na carreira</Text>
+        <Text style={st.posRest}> · faltam {p.remainingInRow}</Text>
       </Text>
-      <Row>
-        <View style={[st.swatch, { backgroundColor: color?.hex ?? '#fff' }]} />
-        <Text style={st.text}>
-          <Text style={{ fontWeight: '700' }}>{color?.name ?? 'Vazio'}</Text>: ponto {p.positionInRun} de {p.runLength}
-          {p.remainingInRun > 0 ? ` · faltam ${p.remainingInRun}` : ' · último desta cor'}
+      <View style={st.posColor}>
+        <View style={[st.swatch, { backgroundColor: hexOf(p.colorId) }]} />
+        <Text style={st.posColorText} numberOfLines={2}>
+          <Text style={st.bold}>{nameOf(p.colorId)}</Text>: ponto {p.positionInRun} de {p.runLength} do bloco · faltam {p.remainingInRun}
+          {p.nextRun ? (
+            <Text style={st.posRest}>
+              {' → depois '}
+              {p.nextRun.inNextRow ? `(carreira ${p.workRow + 1}) ` : ''}
+              <Text style={st.bold}>
+                {p.nextRun.length} {nameOf(p.nextRun.colorId)}
+              </Text>
+            </Text>
+          ) : (
+            <Text style={st.posRest}> · último bloco do gráfico</Text>
+          )}
         </Text>
-      </Row>
-      {upcoming.length > 0 ? (
-        <Text style={st.small}>
-          Depois: {upcoming.map((r) => `${r.length} ${nameOf(r.colorId)}`).join(' → ')}
-          {p.upcomingRuns.length > upcoming.length ? ' → …' : ''}
-        </Text>
-      ) : (
-        <Text style={st.small}>Último bloco da carreira.</Text>
-      )}
-      <Text style={st.small}>
-        Coluna {p.colFromLeft} pela esquerda / {p.colFromRight} pela direita · bloco {p.runIndex} de {p.runsInRow} · ponto {p.overallStitch} de {p.totalStitches}
-      </Text>
+      </View>
     </View>
   );
 }
@@ -370,16 +396,22 @@ function IconBtn({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const st = StyleSheet.create({
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
   iconBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  panel: { padding: space.md, gap: space.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
-  big: { fontSize: 20, fontWeight: '700', color: colors.text },
-  small: { fontSize: 13, color: colors.muted, fontWeight: '400' },
-  text: { fontSize: 15, color: colors.text, flexShrink: 1 },
-  dir: { fontSize: 13, color: colors.accent, fontWeight: '600' },
+  panel: { paddingHorizontal: space.md, paddingTop: space.sm, gap: space.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
+  pos: { gap: 2 },
+  posTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  posRow: { fontSize: 16, fontWeight: '700', color: colors.text },
+  posArrow: { fontSize: 20, color: colors.accent, fontWeight: '800' },
+  posPct: { fontSize: 13, color: colors.muted },
+  posStitch: { fontSize: 22, fontWeight: '800', color: colors.text },
+  posRest: { fontSize: 14, fontWeight: '400', color: colors.muted },
+  posColor: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  posColorText: { flex: 1, fontSize: 15, color: colors.text },
+  bold: { fontWeight: '700' },
   secondary: { flexDirection: 'row', gap: space.sm },
-  secondaryBtn: { flex: 1, minHeight: 44 },
-  main: { minHeight: 72, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 2 },
+  secondaryBtn: { flex: 1, minHeight: 44, paddingHorizontal: 6 },
+  main: { minHeight: 68, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 2 },
   mainDone: { backgroundColor: colors.accent },
   mainTitle: { color: colors.primaryText, fontSize: 22, fontWeight: '700' },
   mainHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },

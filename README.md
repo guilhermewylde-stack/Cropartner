@@ -16,8 +16,10 @@ as fatias de trabalho estão nas issues do repositório.
 - **Progresso**: tocar numa célula marca tudo até ali na ordem de trabalho. O botão grande **Até o fim da cor**
   (embaixo, ao alcance do polegar) avança o bloco de cor inteiro; `+1`, `−1`, `Fim da carreira` e `Desfazer` fazem
   os ajustes finos.
-- **Posição do ponto atual** (sem contar!): carreira X de Y e sentido, ponto N de M na carreira e quantos faltam,
-  posição dentro do bloco de cor e os próximos blocos.
+- **Posição do ponto atual** (sem contar!), num painel compacto: carreira X de Y e sentido (← ou →), ponto N de M
+  na carreira e quantos faltam, posição dentro do bloco de cor e a próxima cor ("faltam 3 → depois 12 Branco"). A
+  carreira e o ponto atuais ficam destacados, o grid rola sozinho até eles e a tela não apaga enquanto o grid está
+  aberto.
 - **Sentido de trabalho**: o ajuste global **"Sou canhota"** (em Ajustes) define de que lado a carreira 1 começa —
   embaixo à direita para destras, embaixo à esquerda para canhotas — sem espelhar o desenho. Por projeto, dá para
   escolher ida e volta ou sempre no mesmo sentido.
