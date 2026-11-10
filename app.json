@@ -10,8 +10,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.cropartner.app",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Usado para importar receitas e gráficos de crochê.",
-        "NSCameraUsageDescription": "Usado para fotografar receitas e gráficos de crochê."
+        "NSPhotoLibraryUsageDescription": "Usado para importar gráficos de crochê.",
+        "NSCameraUsageDescription": "Usado para fotografar gráficos de crochê."
       }
     },
     "android": {
@@ -28,8 +28,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-secure-store"
+      "expo-router"
     ],
     "scheme": "cropartner"
   }

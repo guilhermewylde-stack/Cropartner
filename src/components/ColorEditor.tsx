@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isValidHex, normalizeHex, SWATCHES, colorName } from '../lib/colors';
 import type { PaletteColor } from '../lib/types';
@@ -20,13 +20,8 @@ interface Props {
 export function ColorEditor({ visible, color, palette, usage, onClose, onSave, onMerge, onDelete }: Props) {
   const [hex, setHex] = useState(color?.hex ?? '#C2577A');
   const [name, setName] = useState(color?.name ?? '');
-  const [nameTouched, setNameTouched] = useState(false);
-
-  useEffect(() => {
-    setHex(color?.hex ?? '#C2577A');
-    setName(color?.name ?? '');
-    setNameTouched(!!color);
-  }, [color, visible]);
+  // quem usa remonta o editor (key) a cada cor aberta, então o estado inicial basta
+  const [nameTouched, setNameTouched] = useState(!!color);
 
   const valid = isValidHex(hex);
   const preview = valid ? normalizeHex(hex) : '#FFFFFF';

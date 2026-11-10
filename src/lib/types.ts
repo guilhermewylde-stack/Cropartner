@@ -25,8 +25,18 @@ export type StartCorner = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-le
  */
 export type WorkMode = 'flat' | 'same-direction';
 
+/** Sentido de trabalho já resolvido (canto inicial definido). */
 export interface WorkSettings {
   startCorner: StartCorner;
+  mode: WorkMode;
+}
+
+/**
+ * O que o projeto guarda sobre o sentido de trabalho. Sem `startCorner`, o canto inicial segue o
+ * ajuste global "Sou canhota" (embaixo à direita para destras, embaixo à esquerda para canhotas).
+ */
+export interface ProjectWork {
+  startCorner?: StartCorner | null;
   mode: WorkMode;
 }
 
@@ -50,34 +60,6 @@ export interface YarnSettings {
   gramsPerSkein?: number;
 }
 
-export interface RecipeStep {
-  label: string; // "Carreira 1", "Volta 3", "Montagem"...
-  instructions: string;
-  stitchCount?: number | null;
-  done?: boolean;
-}
-
-export interface RecipeStitchCount {
-  stitch: string; // nome/abreviação do ponto como aparece na receita
-  count: number;
-}
-
-export interface ParsedRecipe {
-  title: string;
-  summary?: string;
-  materials: string[];
-  hookSize?: string | null;
-  yarnWeight?: string | null;
-  gauge?: string | null;
-  finishedSize?: string | null;
-  abbreviations: { abbr: string; meaning: string }[];
-  steps: RecipeStep[];
-  stitchCounts: RecipeStitchCount[];
-  statedYarn?: string | null; // quantidade de fio informada pela receita, se houver
-  notes?: string | null;
-  hasGrid: boolean;
-}
-
 export interface SourceFile {
   id: string;
   uri: string; // cópia local no diretório do app
@@ -94,21 +76,10 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   sources: SourceFile[];
-  recipe?: ParsedRecipe;
-  recipeText?: string;
   grid?: Grid;
   palette: PaletteColor[];
-  work: WorkSettings;
+  work: ProjectWork;
   yarn: YarnSettings;
-  /** sugestão de grid encontrada pela IA (linhas, colunas, área na imagem) */
-  gridHint?: {
-    sourceId: string;
-    page?: number | null;
-    rows: number;
-    cols: number;
-    bbox: { left: number; top: number; right: number; bottom: number };
-    colors: { hex: string; name: string }[];
-  } | null;
   /** índice (row-major) da última célula selecionada no modo progresso */
   lastCell?: number | null;
 }

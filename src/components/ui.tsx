@@ -92,7 +92,12 @@ export function NumberField({
   integer?: boolean;
 }) {
   const [text, setText] = React.useState(String(value));
-  React.useEffect(() => setText(String(value)), [value]);
+  // se o valor mudar por fora, o texto acompanha (ajuste durante o render, sem efeito)
+  const [shown, setShown] = React.useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(String(value));
+  }
   const commit = () => {
     let v = Number(text.replace(',', '.'));
     if (!Number.isFinite(v)) return setText(String(value));

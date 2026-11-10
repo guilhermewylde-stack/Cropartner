@@ -3,6 +3,7 @@ import { persist, createJSONStorage, type StateStorage } from 'zustand/middlewar
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Project } from '../lib/types';
 import { DEFAULT_YARN } from '../lib/yarn';
+import { migrateProjectsState, PROJECTS_VERSION } from '../lib/migrate';
 
 /** Grava no AsyncStorage com debounce: marcar pontos gera muitas atualizações seguidas. */
 function debouncedStorage(delay = 400): StateStorage {
@@ -48,7 +49,7 @@ export const useProjects = create<ProjectsState>()(
           updatedAt: now,
           sources: [],
           palette: [],
-          work: { startCorner: 'bottom-right', mode: 'flat' },
+          work: { mode: 'flat' },
           yarn: DEFAULT_YARN,
           lastCell: null,
         };
@@ -69,7 +70,8 @@ export const useProjects = create<ProjectsState>()(
     }),
     {
       name: 'cropartner-projects',
-      version: 1,
+      version: PROJECTS_VERSION,
+      migrate: (persisted, version) => migrateProjectsState(persisted, version),
       storage: createJSONStorage(() => debouncedStorage()),
       partialize: (s) => ({ projects: s.projects }),
       onRehydrateStorage: () => () => useProjects.setState({ hydrated: true }),

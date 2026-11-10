@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, View, type GestureResponderEvent } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
-import type { Grid, PaletteColor, WorkSettings } from '../lib/types';
-import { rowInfoForGridRow } from '../lib/grid';
+import type { Grid, PaletteColor } from '../lib/types';
+import type { WorkOrder } from '../lib/workOrder';
 import { colors } from '../theme';
 
 const EMPTY = '#FFFFFF';
@@ -10,7 +10,7 @@ const EMPTY = '#FFFFFF';
 interface Props {
   grid: Grid;
   palette: PaletteColor[];
-  work: WorkSettings;
+  order: WorkOrder;
   cellSize: number;
   lastCell?: number | null;
   showDone?: boolean;
@@ -21,7 +21,7 @@ interface Props {
  * Desenha o gráfico com SVG. Células vizinhas da mesma cor são agrupadas em um único retângulo
  * por linha, o que mantém gráficos grandes (100x100+) leves.
  */
-export function GridView({ grid, palette, work, cellSize, lastCell, showDone = true, onCellPress }: Props) {
+export function GridView({ grid, palette, order, cellSize, lastCell, showDone = true, onCellPress }: Props) {
   const { rows, cols } = grid;
   const gutter = Math.max(22, Math.round(cellSize * 1.4));
   const width = gutter * 2 + cols * cellSize;
@@ -89,14 +89,17 @@ export function GridView({ grid, palette, work, cellSize, lastCell, showDone = t
     const out: React.ReactElement[] = [];
     const fs = Math.min(12, Math.max(8, cellSize * 0.6));
     const every = cellSize >= 14 ? 1 : cellSize >= 8 ? 5 : 10;
-    for (let r = 0; r < rows; r++) {
-      const info = rowInfoForGridRow(grid, work, r);
-      if (info.workRow % every !== 0 && info.workRow !== 1) continue;
+    for (let w = 1; w <= order.totalRows; w++) {
+      if (w % every !== 0 && w !== 1) continue;
+      // o número fica ao lado do primeiro ponto da carreira, do lado onde ela começa
+      const row = order.row(w);
+      const ltr = row.direction === 'ltr';
+      const r = Math.floor(row.cells[0] / cols);
       const y = gutter + r * cellSize + cellSize / 2 + fs / 3;
-      const x = info.leftToRight ? gutter - 4 : gutter + cols * cellSize + 4;
+      const x = ltr ? gutter - 4 : gutter + cols * cellSize + 4;
       out.push(
-        <SvgText key={`r${r}`} x={x} y={y} fontSize={fs} fill={colors.muted} textAnchor={info.leftToRight ? 'end' : 'start'}>
-          {info.workRow}
+        <SvgText key={`r${w}`} x={x} y={y} fontSize={fs} fill={colors.muted} textAnchor={ltr ? 'end' : 'start'}>
+          {w}
         </SvgText>,
       );
     }
@@ -110,7 +113,7 @@ export function GridView({ grid, palette, work, cellSize, lastCell, showDone = t
       );
     }
     return out;
-  }, [rows, cols, cellSize, gutter, work, grid]);
+  }, [cols, cellSize, gutter, order]);
 
   const lastRow = lastCell != null ? Math.floor(lastCell / cols) : null;
   const lastCol = lastCell != null ? lastCell % cols : null;

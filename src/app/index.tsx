@@ -70,7 +70,6 @@ export default function Home() {
                 <Title>{item.name}</Title>
                 <Muted>
                   {item.sources.length} arquivo(s)
-                  {item.recipe ? ' · receita lida' : ''}
                   {item.grid ? ` · grid ${item.grid.cols}×${item.grid.rows} · ${total ? Math.round((done / total) * 100) : 0}% feito` : ''}
                 </Muted>
               </Card>

@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useProject, useProjects } from '../../../store/projects';
 import { Button, Card, Muted, NumberField, Row, styles, Title } from '../../../components/ui';
-import { calibrate, estimateFromGrid, estimateFromRecipe } from '../../../lib/yarn';
+import { calibrate, estimateFromGrid } from '../../../lib/yarn';
+import { useWorkOrder } from '../../../hooks/useWorkOrder';
 import type { YarnSettings } from '../../../lib/types';
 import { colors, space } from '../../../theme';
 
@@ -18,14 +19,8 @@ export default function YarnScreen() {
   const [calTarget, setCalTarget] = useState<string | null>(null);
 
   const y = project?.yarn;
-  const gridEst = useMemo(
-    () => (project?.grid && y ? estimateFromGrid(project.grid, project.palette, project.work, y) : null),
-    [project?.grid, project?.palette, project?.work, y],
-  );
-  const recipeEst = useMemo(
-    () => (project?.recipe?.stitchCounts.length && y ? estimateFromRecipe(project.recipe.stitchCounts, y) : null),
-    [project?.recipe, y],
-  );
+  const order = useWorkOrder(project);
+  const gridEst = project?.grid && order && y ? estimateFromGrid(project.grid, project.palette, order, y) : null;
   if (!project || !y) return null;
 
   const setYarn = (patch: Partial<YarnSettings>) => update(project.id, { yarn: { ...y, ...patch } });
@@ -70,37 +65,9 @@ export default function YarnScreen() {
         </Card>
       )}
 
-      {recipeEst && (
+      {!gridEst && (
         <Card>
-          <Title>Pela receita</Title>
-          {project.recipe?.statedYarn ? <Muted>A receita indica: {project.recipe.statedYarn}</Muted> : null}
-          {recipeEst.lines.map((l, i) => (
-            <View key={i} style={st.line}>
-              <View style={{ flex: 1 }}>
-                <Text style={st.name}>
-                  {l.count} × {l.stitch}
-                </Text>
-                <Muted>{l.matched ? l.matched.name : 'ponto não reconhecido — usando o ponto do grid'}</Muted>
-              </View>
-              <Text style={st.value}>{fmt(l.meters)} m</Text>
-            </View>
-          ))}
-          <View style={[st.line, st.total]}>
-            <Text style={[st.name, { flex: 1 }]}>Total estimado</Text>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={st.value}>{fmt(recipeEst.totalMeters)} m</Text>
-              <Muted>
-                {fmt(recipeEst.totalSkeins, 2)} novelo(s){recipeEst.totalGrams != null ? ` · ${fmt(recipeEst.totalGrams, 0)} g` : ''}
-              </Muted>
-            </View>
-          </View>
-          <Muted>As contagens de pontos foram estimadas pela IA a partir da receita; confira as quantidades.</Muted>
-        </Card>
-      )}
-
-      {!gridEst && !recipeEst && (
-        <Card>
-          <Muted>Crie um grid ou leia a receita com IA para calcular a linha necessária.</Muted>
+          <Muted>Crie um grid para calcular a linha necessária.</Muted>
         </Card>
       )}
 

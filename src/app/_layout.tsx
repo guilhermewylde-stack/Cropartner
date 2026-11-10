@@ -16,9 +16,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Cropartner' }} />
-        <Stack.Screen name="settings" options={{ title: 'Configurações' }} />
+        <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
         <Stack.Screen name="project/[id]/index" options={{ title: 'Projeto' }} />
-        <Stack.Screen name="project/[id]/recipe" options={{ title: 'Receita' }} />
         <Stack.Screen name="project/[id]/grid-setup" options={{ title: 'Criar grid' }} />
         <Stack.Screen name="project/[id]/grid" options={{ title: 'Grid' }} />
         <Stack.Screen name="project/[id]/yarn" options={{ title: 'Cálculo de linha' }} />

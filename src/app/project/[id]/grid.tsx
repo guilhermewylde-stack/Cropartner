@@ -20,7 +20,11 @@ import {
   type AdvanceKind,
 } from '../../../lib/grid';
 import { makePaletteColor, textColorOn } from '../../../lib/colors';
-import type { Grid, PaletteColor, Project, StartCorner, WorkMode } from '../../../lib/types';
+import type { Grid, PaletteColor, Project, ProjectWork, StartCorner, WorkMode } from '../../../lib/types';
+import type { WorkOrder } from '../../../lib/workOrder';
+import { defaultStartCorner } from '../../../lib/workOrder';
+import { useWorkOrder } from '../../../hooks/useWorkOrder';
+import { useSettings } from '../../../store/settings';
 import { colors, space } from '../../../theme';
 
 type Mode = 'progress' | 'paint';
@@ -40,9 +44,11 @@ export default function GridScreen() {
   const [editing, setEditing] = useState<PaletteColor | 'new' | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const history = useRef<{ grid: Grid; lastCell: number | null | undefined; palette: PaletteColor[] }[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
   const usage = useMemoUsage(project?.grid);
+  const order = useWorkOrder(project);
 
-  if (!project || !project.grid) {
+  if (!project || !project.grid || !order) {
     return (
       <View style={{ padding: space.lg, gap: space.md }}>
         <Muted>Este projeto ainda não tem grid.</Muted>
@@ -51,16 +57,17 @@ export default function GridScreen() {
     );
   }
   const grid = project.grid;
-  const work = project.work;
 
   const commit = (patch: Partial<Project>) => {
     history.current.push({ grid, lastCell: project.lastCell, palette: project.palette });
     if (history.current.length > 50) history.current.shift();
+    setCanUndo(true);
     update(project.id, patch);
   };
 
   const undo = () => {
     const prev = history.current.pop();
+    setCanUndo(history.current.length > 0);
     if (prev) update(project.id, { grid: prev.grid, lastCell: prev.lastCell, palette: prev.palette });
   };
 
@@ -79,18 +86,18 @@ export default function GridScreen() {
       const value = !isDone(grid, cell);
       return commit({ grid: setDone(grid, [cell], value), lastCell: cell });
     }
-    commit({ grid: markUpTo(grid, work, cell), lastCell: cell });
+    commit({ grid: markUpTo(grid, order, cell), lastCell: cell });
   };
 
   const advance = (kind: AdvanceKind) => {
-    const target = advanceTarget(grid, work, project.lastCell, kind);
+    const target = advanceTarget(grid, order, project.lastCell, kind);
     if (target == null) return Alert.alert('Fim do gráfico', 'Todos os pontos foram feitos. 🎉');
-    commit({ grid: setDone(grid, cellsBetween(grid, work, project.lastCell, target), true), lastCell: target });
+    commit({ grid: setDone(grid, cellsBetween(order, project.lastCell, target), true), lastCell: target });
   };
 
   const back = () => {
     if (project.lastCell == null) return;
-    commit({ grid: setDone(grid, [project.lastCell], false), lastCell: nextCell(grid, work, project.lastCell, -1) });
+    commit({ grid: setDone(grid, [project.lastCell], false), lastCell: nextCell(order, project.lastCell, -1) });
   };
 
   const saveColor = (c: { name: string; hex: string }) => {
@@ -139,18 +146,18 @@ export default function GridScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <GridView grid={grid} palette={project.palette} work={work} cellSize={cellSize} lastCell={mode === 'progress' ? project.lastCell : null} onCellPress={onCellPress} showDone={mode === 'progress'} />
+        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} lastCell={mode === 'progress' ? project.lastCell : null} onCellPress={onCellPress} showDone={mode === 'progress'} />
       </View>
 
       <View style={[st.panel, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
         {mode === 'progress' ? (
           <>
-            <PositionPanel project={project} />
+            <PositionPanel project={project} order={order} />
             <Row style={{ justifyContent: 'space-between' }}>
               <Muted>
                 {done}/{total} pontos ({total ? Math.round((done / total) * 100) : 0}%)
               </Muted>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!history.current.length} />
+              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo} />
             </Row>
             <Row>
               <Button small variant="secondary" title="−1" onPress={back} disabled={project.lastCell == null} />
@@ -203,13 +210,14 @@ export default function GridScreen() {
                   ]}
                 />
               </View>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!history.current.length} />
+              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo} />
             </Row>
           </>
         )}
       </View>
 
       <ColorEditor
+        key={editing == null ? 'closed' : editing === 'new' ? 'new' : editing.id}
         visible={editing != null}
         color={editing === 'new' ? null : editing}
         palette={project.palette}
@@ -224,7 +232,7 @@ export default function GridScreen() {
         visible={showSettings}
         project={project}
         onClose={() => setShowSettings(false)}
-        onChange={(w) => update(project.id, { work: { ...work, ...w } })}
+        onChange={(work) => update(project.id, { work })}
         onReset={() => {
           commit({ grid: { ...grid, done: '0'.repeat(total) }, lastCell: null });
           setShowSettings(false);
@@ -244,13 +252,13 @@ function useMemoUsage(grid: Grid | undefined) {
 }
 
 /** Mostra onde está o ponto atual, para não precisar contar no meio da carreira. */
-function PositionPanel({ project }: { project: Project }) {
+function PositionPanel({ project, order }: { project: Project; order: WorkOrder }) {
   const grid = project.grid!;
   const cell = project.lastCell;
   if (cell == null || cell >= grid.cells.length) {
     return <Muted>Toque numa célula (ou em “+1 ponto”) para começar. A posição do ponto atual aparece aqui.</Muted>;
   }
-  const p = positionInfo(grid, project.work, cell);
+  const p = positionInfo(grid, order, cell);
   const byId = new Map(project.palette.map((c) => [c.id, c]));
   const color = p.colorId ? byId.get(p.colorId) : undefined;
   const nameOf = (cid: string | null) => (cid ? byId.get(cid)?.name ?? '?' : 'vazio');
@@ -261,7 +269,7 @@ function PositionPanel({ project }: { project: Project }) {
         <Title>
           Carreira {p.workRow}/{p.totalRows}
         </Title>
-        <Text style={st.dir}>{p.leftToRight ? 'esquerda → direita' : 'direita → esquerda'}</Text>
+        <Text style={st.dir}>{p.direction === 'ltr' ? 'esquerda → direita' : 'direita → esquerda'}</Text>
       </Row>
       <Text style={st.big}>
         Ponto {p.stitchInRow} de {p.stitchesInRow}
@@ -299,35 +307,51 @@ function WorkSettingsModal({
   visible: boolean;
   project: Project;
   onClose: () => void;
-  onChange: (w: Partial<Project['work']>) => void;
+  onChange: (w: ProjectWork) => void;
   onReset: () => void;
 }) {
+  const leftHanded = useSettings((s) => s.leftHanded);
+  const work = project.work;
+  const auto = defaultStartCorner(leftHanded);
+  const custom = work.startCorner != null;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={st.backdrop}>
         <View style={st.sheet}>
           <Title>Sentido de trabalho</Title>
           <Muted>Define a ordem dos pontos usada no progresso e na contagem da posição.</Muted>
-          <Text style={st.label}>Onde começa a carreira 1</Text>
-          <Segmented<StartCorner>
-            value={project.work.startCorner}
-            onChange={(startCorner) => onChange({ startCorner })}
-            options={[
-              { value: 'bottom-right', label: 'Baixo dir.' },
-              { value: 'bottom-left', label: 'Baixo esq.' },
-              { value: 'top-right', label: 'Topo dir.' },
-              { value: 'top-left', label: 'Topo esq.' },
-            ]}
-          />
           <Text style={st.label}>Carreiras</Text>
           <Segmented<WorkMode>
-            value={project.work.mode}
-            onChange={(mode) => onChange({ mode })}
+            value={work.mode}
+            onChange={(mode) => onChange({ ...work, mode })}
             options={[
               { value: 'flat', label: 'Ida e volta' },
               { value: 'same-direction', label: 'Sempre no mesmo sentido' },
             ]}
           />
+          <Text style={st.label}>Onde começa a carreira 1</Text>
+          <Segmented<'auto' | 'custom'>
+            value={custom ? 'custom' : 'auto'}
+            onChange={(v) => onChange({ ...work, startCorner: v === 'auto' ? null : auto })}
+            options={[
+              { value: 'auto', label: `Padrão (${leftHanded ? 'embaixo à esquerda' : 'embaixo à direita'})` },
+              { value: 'custom', label: 'Outro canto' },
+            ]}
+          />
+          {custom ? (
+            <Segmented<StartCorner>
+              value={work.startCorner ?? auto}
+              onChange={(startCorner) => onChange({ ...work, startCorner })}
+              options={[
+                { value: 'bottom-right', label: 'Baixo dir.' },
+                { value: 'bottom-left', label: 'Baixo esq.' },
+                { value: 'top-right', label: 'Topo dir.' },
+                { value: 'top-left', label: 'Topo esq.' },
+              ]}
+            />
+          ) : (
+            <Muted>O padrão segue o ajuste “Sou canhota” (em Ajustes, na tela inicial).</Muted>
+          )}
           <Button
             variant="ghost"
             title="Zerar progresso"

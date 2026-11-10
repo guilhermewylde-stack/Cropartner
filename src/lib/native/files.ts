@@ -1,9 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Directory, File, Paths } from 'expo-file-system';
-import { fromByteArray } from 'base64-js';
 import type { SourceFile } from '../types';
-import type { AISource } from '../ai';
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -89,19 +87,4 @@ export function deleteProjectFiles(projectId: string) {
   } catch {
     // ignora
   }
-}
-
-export async function readBase64(uri: string): Promise<string> {
-  const bytes = await new File(uri).bytes();
-  return fromByteArray(bytes);
-}
-
-/** Prepara os arquivos para envio à IA (imagens grandes são reduzidas para economizar). */
-export async function toAISources(sources: SourceFile[], prepareImage: (s: SourceFile) => Promise<{ base64: string; mediaType: string }>): Promise<AISource[]> {
-  const out: AISource[] = [];
-  for (const s of sources) {
-    if (s.kind === 'pdf') out.push({ kind: 'pdf', mediaType: 'application/pdf', base64: await readBase64(s.uri), name: s.name });
-    else out.push({ kind: 'image', name: s.name, ...(await prepareImage(s)) });
-  }
-  return out;
 }

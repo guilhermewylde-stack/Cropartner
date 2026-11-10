@@ -1,49 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Svg, { Line, Rect } from 'react-native-svg';
 import { useProject, useProjects } from '../../../store/projects';
 import { Button, Card, Muted, NumberField, Row, Segmented, styles, Title } from '../../../components/ui';
 import { GridView } from '../../../components/GridView';
 import { createGrid } from '../../../lib/grid';
+import { resolveWork, straightRows } from '../../../lib/workOrder';
+import { useSettings } from '../../../store/settings';
 import { makePaletteColor } from '../../../lib/colors';
 import { FULL_IMAGE, type CropFractions } from '../../../lib/sampling';
-import { imageForAI, imageSize, readGridFromImage } from '../../../lib/native/imageGrid';
-import { readBase64 } from '../../../lib/native/files';
-import { getApiKey } from '../../../lib/native/settings';
-import { transcribeGrid, type AISource } from '../../../lib/ai';
-import { gridFromTranscription } from '../../../lib/transcribed';
+import { imageSize, readGridFromImage } from '../../../lib/native/imageGrid';
 import type { Grid, PaletteColor, SourceFile } from '../../../lib/types';
 import { colors, space } from '../../../theme';
 
-type Method = 'blank' | 'image' | 'ai';
+type Method = 'blank' | 'image';
 
 export default function GridSetup() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const project = useProject(id);
   const update = useProjects((s) => s.updateProject);
-  const hint = project?.gridHint ?? null;
+  const leftHanded = useSettings((s) => s.leftHanded);
   const images = project?.sources.filter((s) => s.kind === 'image') ?? [];
-  const all = project?.sources ?? [];
 
-  const [method, setMethod] = useState<Method>(hint || images.length ? (images.length ? 'image' : 'ai') : 'blank');
-  const [rows, setRows] = useState(hint?.rows ?? 30);
-  const [cols, setCols] = useState(hint?.cols ?? 30);
-  const [maxColors, setMaxColors] = useState(Math.max(2, hint?.colors.length ?? 6));
-  const [sourceId, setSourceId] = useState<string | null>(hint?.sourceId ?? images[0]?.id ?? all[0]?.id ?? null);
-  const [page, setPage] = useState(hint?.page ?? 1);
-  const [crop, setCrop] = useState<CropFractions>(hint?.bbox ?? FULL_IMAGE);
+  const [method, setMethod] = useState<Method>(images.length ? 'image' : 'blank');
+  const [rows, setRows] = useState(30);
+  const [cols, setCols] = useState(30);
+  const [maxColors, setMaxColors] = useState(6);
+  const [sourceId, setSourceId] = useState<string | null>(images[0]?.id ?? null);
+  const [crop, setCrop] = useState<CropFractions>(FULL_IMAGE);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<{ grid: Grid; palette: PaletteColor[] } | null>(null);
 
-  const source = all.find((s) => s.id === sourceId) ?? null;
-  const imageSources = method === 'image' ? images : all;
-
-  useEffect(() => {
-    // ao trocar de método, garante uma fonte compatível
-    if (method === 'image' && source && source.kind !== 'image') setSourceId(images[0]?.id ?? null);
-    setPreview(null);
-  }, [method]); // eslint-disable-line react-hooks/exhaustive-deps
+  const source = images.find((s) => s.id === sourceId) ?? null;
 
   if (!project) return null;
 
@@ -66,7 +55,7 @@ export default function GridSetup() {
   };
 
   const readFromImage = async () => {
-    if (!source || source.kind !== 'image') return;
+    if (!source) return;
     setBusy(true);
     try {
       setPreview(await readGridFromImage(source.uri, { rows, cols, crop, maxColors }));
@@ -77,44 +66,19 @@ export default function GridSetup() {
     }
   };
 
-  const transcribe = async () => {
-    if (!source) return;
-    setBusy(true);
-    try {
-      const key = await getApiKey();
-      const ai: AISource =
-        source.kind === 'pdf'
-          ? { kind: 'pdf', mediaType: 'application/pdf', base64: await readBase64(source.uri), name: source.name }
-          : { kind: 'image', name: source.name, ...(await imageForAI(source, 2400)) };
-      const t = await transcribeGrid(key, ai, { rows, cols, page: source.kind === 'pdf' ? page : null });
-      setPreview(gridFromTranscription(t, rows, cols));
-    } catch (e) {
-      Alert.alert('Não foi possível transcrever', (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Segmented
         value={method}
-        onChange={setMethod}
+        onChange={(m) => {
+          setMethod(m);
+          setPreview(null);
+        }}
         options={[
           { value: 'blank', label: 'Em branco' },
           { value: 'image', label: 'Da imagem' },
-          { value: 'ai', label: 'Transcrever (IA)' },
         ]}
       />
-      {hint && (
-        <Card>
-          <Muted>
-            A IA encontrou um gráfico de {hint.cols} colunas × {hint.rows} linhas
-            {hint.colors.length ? ` com ${hint.colors.length} cores` : ''}. Os campos abaixo já foram preenchidos — confira antes de ler.
-          </Muted>
-        </Card>
-      )}
-
       <Card>
         <Title>Tamanho</Title>
         <Row>
@@ -134,32 +98,21 @@ export default function GridSetup() {
       {method !== 'blank' && (
         <Card>
           <Title>Arquivo do gráfico</Title>
-          {imageSources.length === 0 ? (
-            <Muted>
-              {method === 'image'
-                ? 'Importe uma imagem do gráfico na tela do projeto. Para PDFs, use “Transcrever (IA)” ou importe um print da página.'
-                : 'Importe a imagem ou o PDF do gráfico na tela do projeto.'}
-            </Muted>
+          {images.length === 0 ? (
+            <Muted>Importe uma imagem do gráfico na tela do projeto. Para PDFs, por enquanto, importe um print da página.</Muted>
           ) : (
             <ScrollView horizontal contentContainerStyle={{ gap: space.sm }}>
-              {imageSources.map((s) => (
+              {images.map((s) => (
                 <Pressable key={s.id} onPress={() => setSourceId(s.id)} style={[st.thumb, s.id === sourceId && st.thumbActive]}>
-                  {s.kind === 'image' ? (
-                    <Image source={{ uri: s.uri }} style={st.thumbImg} />
-                  ) : (
-                    <View style={[st.thumbImg, { alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ color: colors.primary, fontWeight: '700' }}>PDF</Text>
-                    </View>
-                  )}
+                  <Image source={{ uri: s.uri }} style={st.thumbImg} />
                 </Pressable>
               ))}
             </ScrollView>
           )}
-          {method === 'ai' && source?.kind === 'pdf' && <NumberField label="Página do PDF" value={page} onChange={setPage} min={1} integer />}
         </Card>
       )}
 
-      {method === 'image' && source?.kind === 'image' && (
+      {method === 'image' && source && (
         <Card>
           <Title>Área do gráfico</Title>
           <Muted>Ajuste as margens (em %) para que o retângulo cubra só os quadradinhos — sem números e legendas. As linhas mostram onde cada célula será lida.</Muted>
@@ -176,22 +129,12 @@ export default function GridSetup() {
         </Card>
       )}
 
-      {method === 'ai' && (
-        <Card>
-          <Muted>
-            A IA lê o gráfico célula por célula. Funciona com PDF e imagem; é mais lento e recomendado para gráficos de até ~60×60. Confira o resultado
-            antes de usar.
-          </Muted>
-          <Button title="Transcrever gráfico com IA" onPress={transcribe} loading={busy} disabled={!source} />
-        </Card>
-      )}
-
       {preview && (
         <Card>
           <Title>Resultado</Title>
           <Muted>{preview.palette.length} cores detectadas. Você poderá trocar e mesclar cores depois.</Muted>
           <View style={{ height: 320, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }}>
-            <GridView grid={preview.grid} palette={preview.palette} work={project.work} cellSize={Math.max(4, Math.min(14, Math.floor(300 / Math.max(rows, cols))))} showDone={false} />
+            <GridView grid={preview.grid} palette={preview.palette} order={straightRows(preview.grid, resolveWork(project.work, { leftHanded }))} cellSize={Math.max(4, Math.min(14, Math.floor(300 / Math.max(rows, cols))))} showDone={false} />
           </View>
           <Row>
             {preview.palette.map((p) => (

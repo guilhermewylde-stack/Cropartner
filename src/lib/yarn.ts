@@ -1,5 +1,6 @@
 import { colorStats } from './grid';
-import type { Grid, PaletteColor, RecipeStitchCount, StitchType, WorkSettings, YarnSettings } from './types';
+import type { Grid, PaletteColor, StitchType, YarnSettings } from './types';
+import type { WorkOrder } from './workOrder';
 
 /**
  * Consumo médio de fio por ponto (cm), para fio médio (~4–5 mm de agulha).
@@ -54,9 +55,9 @@ function finish(meters: number, y: YarnSettings) {
 }
 
 /** Estimativa de fio por cor, a partir do grid (1 célula = 1 ponto do tipo escolhido). */
-export function estimateFromGrid(g: Grid, palette: PaletteColor[], work: WorkSettings, y: YarnSettings): YarnEstimate {
+export function estimateFromGrid(g: Grid, palette: PaletteColor[], order: WorkOrder, y: YarnSettings): YarnEstimate {
   const st = y.stitchTypes.find((s) => s.id === y.gridStitchId) ?? y.stitchTypes[0];
-  const stats = colorStats(g, work);
+  const stats = colorStats(g, order);
   const perColor: ColorYarnEstimate[] = [];
   for (const color of palette) {
     const s = stats.get(color.id);
@@ -72,52 +73,6 @@ export function estimateFromGrid(g: Grid, palette: PaletteColor[], work: WorkSet
 function totalsOf(totalMeters: number, y: YarnSettings) {
   const f = finish(totalMeters, y);
   return { totalMeters: f.meters, totalSkeins: f.skeins, totalGrams: f.grams };
-}
-
-/** Associa o nome do ponto escrito na receita a um tipo de ponto conhecido. */
-export function matchStitch(name: string, types: StitchType[]): StitchType | undefined {
-  const n = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim();
-  const aliases: Record<string, string[]> = {
-    corr: ['corr', 'correntinha', 'corrente', 'ch', 'chain', 'cad', 'cadeneta'],
-    pbx: ['pbx', 'baixissimo', 'slip', 'sl st', 'slst', 'ss', 'pd', 'deslizado'],
-    pb: ['pb', 'ponto baixo', 'sc', 'single crochet', 'mp', 'medio punto'],
-    mpa: ['mpa', 'meio ponto alto', 'hdc', 'half double', 'mpa'],
-    pa: ['pa', 'ponto alto', 'dc', 'double crochet', 'vareta'],
-    pad: ['pad', 'ponto alto duplo', 'tr', 'treble', 'triple', 'pa duplo'],
-  };
-  // abreviação exata primeiro
-  for (const t of types) if (t.id === n || t.name.toLowerCase().includes(`(${n})`)) return t;
-  // procura pelos aliases mais longos primeiro para "ponto alto duplo" não cair em "ponto alto"
-  const entries = Object.entries(aliases).flatMap(([id, list]) => list.map((a) => [id, a] as const));
-  entries.sort((a, b) => b[1].length - a[1].length);
-  for (const [id, a] of entries) {
-    const re = new RegExp(`(^|[^a-z])${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?([^a-z]|$)`);
-    if (re.test(n)) return types.find((t) => t.id === id);
-  }
-  return undefined;
-}
-
-export interface RecipeYarnLine {
-  stitch: string;
-  count: number;
-  matched?: StitchType;
-  meters: number;
-}
-
-/** Estimativa total de fio a partir das contagens de pontos extraídas da receita. */
-export function estimateFromRecipe(counts: RecipeStitchCount[], y: YarnSettings) {
-  const fallback = y.stitchTypes.find((s) => s.id === y.gridStitchId) ?? y.stitchTypes[0];
-  const lines: RecipeYarnLine[] = counts.map((c) => {
-    const matched = matchStitch(c.stitch, y.stitchTypes);
-    const cm = c.count * (matched ?? fallback).cmPerStitch * (1 + y.wastePercent / 100);
-    return { stitch: c.stitch, count: c.count, matched, meters: round2(cm / 100) };
-  });
-  const totalMeters = lines.reduce((a, l) => a + l.meters, 0);
-  return { lines, ...totalsOf(totalMeters, y) };
 }
 
 /** Calibração: o usuário faz N pontos e mede o fio gasto (cm). */
