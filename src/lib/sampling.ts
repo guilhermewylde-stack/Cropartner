@@ -67,7 +67,7 @@ export function sampleGridFromRGBA(
   const m = mergeClose(q.centers, q.labels, opts.mergeThreshold ?? 40);
   const palette = uniqueNames(m.centers.map((c) => makePaletteColor(rgbToHex(c))));
   const cells = m.labels.map((l) => palette[l].id);
-  return { grid: { rows, cols, cells, done: '0'.repeat(rows * cols) }, palette: sortPaletteByUsage(palette, cells) };
+  return { grid: { rows, cols, cells }, palette: sortPaletteByUsage(palette, cells) };
 }
 
 function median(v: number[]): number {

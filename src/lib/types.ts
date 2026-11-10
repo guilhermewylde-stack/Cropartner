@@ -8,13 +8,11 @@ export interface PaletteColor {
 /**
  * Grid do gráfico. `cells` é row-major com a linha 0 no topo (como o gráfico é desenhado).
  * Cada célula guarda o id da cor (ou null = vazia / sem ponto).
- * `done` é uma string de '0'/'1' do mesmo tamanho (compacta para salvar).
  */
 export interface Grid {
   rows: number;
   cols: number;
   cells: (string | null)[];
-  done: string;
 }
 
 export type StartCorner = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
@@ -80,6 +78,6 @@ export interface Project {
   palette: PaletteColor[];
   work: ProjectWork;
   yarn: YarnSettings;
-  /** índice (row-major) da última célula selecionada no modo progresso */
-  lastCell?: number | null;
+  /** pontos já feitos, contados na ordem de trabalho (ver `lib/progress.ts`) */
+  progress: number;
 }

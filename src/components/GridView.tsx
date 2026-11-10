@@ -12,8 +12,10 @@ interface Props {
   palette: PaletteColor[];
   order: WorkOrder;
   cellSize: number;
-  lastCell?: number | null;
-  showDone?: boolean;
+  /** pontos feitos na ordem de trabalho (aparecem apagados); 0 = não mostrar progresso */
+  done?: number;
+  /** célula destacada (com a carreira dela) */
+  currentCell?: number | null;
   onCellPress?: (cell: number) => void;
 }
 
@@ -21,7 +23,7 @@ interface Props {
  * Desenha o gráfico com SVG. Células vizinhas da mesma cor são agrupadas em um único retângulo
  * por linha, o que mantém gráficos grandes (100x100+) leves.
  */
-export function GridView({ grid, palette, order, cellSize, lastCell, showDone = true, onCellPress }: Props) {
+export function GridView({ grid, palette, order, cellSize, done = 0, currentCell, onCellPress }: Props) {
   const { rows, cols } = grid;
   const gutter = Math.max(22, Math.round(cellSize * 1.4));
   const width = gutter * 2 + cols * cellSize;
@@ -53,22 +55,26 @@ export function GridView({ grid, palette, order, cellSize, lastCell, showDone = 
     return out;
   }, [grid.cells, rows, cols, cellSize, hexById]);
 
+  // pontos feitos: um retângulo por trecho contínuo de cada carreira já trabalhada
   const doneRects = useMemo(() => {
-    if (!showDone) return [];
     const out: React.ReactElement[] = [];
-    for (let r = 0; r < rows; r++) {
-      let start = -1;
-      for (let c = 0; c <= cols; c++) {
-        const d = c < cols && grid.done.charCodeAt(r * cols + c) === 49;
-        if (d && start < 0) start = c;
-        if (!d && start >= 0) {
-          out.push(<Rect key={`d${r}-${start}`} x={start * cellSize} y={r * cellSize} width={(c - start) * cellSize} height={cellSize} fill={colors.done} />);
-          start = -1;
-        }
+    for (let w = 1; w <= order.totalRows; w++) {
+      const row = order.row(w);
+      if (row.startIndex >= done) break;
+      const cells = row.cells.slice(0, done - row.startIndex).sort((x, y) => x - y);
+      let start = 0;
+      for (let i = 1; i <= cells.length; i++) {
+        const contiguous = i < cells.length && cells[i] === cells[i - 1] + 1 && cells[i] % cols !== 0;
+        if (contiguous) continue;
+        const first = cells[start];
+        out.push(
+          <Rect key={`d${first}`} x={(first % cols) * cellSize} y={Math.floor(first / cols) * cellSize} width={(i - start) * cellSize} height={cellSize} fill={colors.done} />,
+        );
+        start = i;
       }
     }
     return out;
-  }, [grid.done, rows, cols, cellSize, showDone]);
+  }, [order, done, cols, cellSize]);
 
   const lines = useMemo(() => {
     const out: React.ReactElement[] = [];
@@ -115,13 +121,15 @@ export function GridView({ grid, palette, order, cellSize, lastCell, showDone = 
     return out;
   }, [cols, cellSize, gutter, order]);
 
-  const lastRow = lastCell != null ? Math.floor(lastCell / cols) : null;
-  const lastCol = lastCell != null ? lastCell % cols : null;
+  const lastRow = currentCell != null ? Math.floor(currentCell / cols) : null;
+  const lastCol = currentCell != null ? currentCell % cols : null;
 
   const handlePress = (e: GestureResponderEvent) => {
     if (!onCellPress) return;
-    const x = e.nativeEvent.locationX - gutter;
-    const y = e.nativeEvent.locationY - gutter;
+    // no aparelho o toque traz locationX/Y; no navegador (build web) o clique traz offsetX/Y
+    const ne = e.nativeEvent as typeof e.nativeEvent & { offsetX?: number; offsetY?: number };
+    const x = (ne.locationX ?? ne.offsetX ?? Number.NaN) - gutter;
+    const y = (ne.locationY ?? ne.offsetY ?? Number.NaN) - gutter;
     const c = Math.floor(x / cellSize);
     const r = Math.floor(y / cellSize);
     if (r >= 0 && r < rows && c >= 0 && c < cols) onCellPress(r * cols + c);

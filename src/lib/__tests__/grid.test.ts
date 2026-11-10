@@ -1,17 +1,4 @@
-import {
-  advanceTarget,
-  cellsBetween,
-  colorStats,
-  countDone,
-  createGrid,
-  firstPendingCell,
-  floodFill,
-  idx,
-  markUpTo,
-  nextCell,
-  positionInfo,
-  replaceColor,
-} from '../grid';
+import { colorStats, createGrid, floodFill, idx, positionInfo, replaceColor } from '../grid';
 import { straightRows } from '../workOrder';
 import type { Grid } from '../types';
 
@@ -62,27 +49,6 @@ describe('posição do ponto', () => {
   });
 });
 
-describe('progresso', () => {
-  const g = createGrid(2, 3);
-  const o = flatBR(g);
-
-  test('marcar até a célula preenche tudo antes na ordem de trabalho', () => {
-    const m = markUpTo(g, o, idx(g, 0, 1)); // carreira 2, ponto 2
-    expect(countDone(m)).toBe(5);
-    expect(firstPendingCell(m, o)).toBe(idx(g, 0, 2));
-    // desmarcar voltando
-    const back = markUpTo(m, o, idx(g, 1, 2));
-    expect(countDone(back)).toBe(1);
-  });
-
-  test('nextCell avança e para no fim', () => {
-    expect(nextCell(o, null)).toBe(idx(g, 1, 2));
-    expect(nextCell(o, idx(g, 1, 0))).toBe(idx(g, 0, 0));
-    expect(nextCell(o, idx(g, 0, 2))).toBeNull();
-    expect(nextCell(o, idx(g, 0, 0), -1)).toBe(idx(g, 1, 0));
-  });
-});
-
 describe('cores', () => {
   test('estatísticas contam pontos e blocos por cor', () => {
     const g = gridFrom(['ABA', 'AAA']);
@@ -97,21 +63,7 @@ describe('cores', () => {
   });
 });
 
-describe('avançar', () => {
-  // base (carreira 1, da direita p/ esquerda): A A B B B ; carreira 2 (esq->dir): C C C C C
-  const g = gridFrom(['CCCCC', 'BBBAA']);
-  const o = flatBR(g);
-  test('próximo ponto, fim da cor e fim da carreira', () => {
-    expect(advanceTarget(g, o, null, 'stitch')).toBe(idx(g, 1, 4));
-    expect(advanceTarget(g, o, null, 'color')).toBe(idx(g, 1, 3)); // fim do bloco A
-    expect(advanceTarget(g, o, idx(g, 1, 3), 'color')).toBe(idx(g, 1, 0)); // fim do bloco B
-    expect(advanceTarget(g, o, idx(g, 1, 4), 'row')).toBe(idx(g, 1, 0));
-    expect(advanceTarget(g, o, idx(g, 1, 0), 'row')).toBe(idx(g, 0, 4));
-    expect(advanceTarget(g, o, idx(g, 0, 4), 'stitch')).toBeNull();
-  });
-  test('células entre dois pontos', () => {
-    expect(cellsBetween(o, idx(g, 1, 1), idx(g, 0, 1))).toEqual([idx(g, 1, 0), idx(g, 0, 0), idx(g, 0, 1)]);
-  });
+describe('pintar', () => {
   test('balde', () => {
     const f = floodFill(gridFrom(['AAB', 'ABB']), 0, 'C');
     expect(f.cells).toEqual(['C', 'C', 'B', 'C', 'B', 'B']);

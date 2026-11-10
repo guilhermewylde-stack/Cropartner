@@ -51,7 +51,7 @@ export const useProjects = create<ProjectsState>()(
           palette: [],
           work: { mode: 'flat' },
           yarn: DEFAULT_YARN,
-          lastCell: null,
+          progress: 0,
         };
         set({ projects: { ...get().projects, [p.id]: p } });
         return p;

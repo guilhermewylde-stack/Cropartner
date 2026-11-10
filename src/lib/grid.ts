@@ -6,37 +6,16 @@ export const rowOf = (g: Pick<Grid, 'cols'>, i: number) => Math.floor(i / g.cols
 export const colOf = (g: Pick<Grid, 'cols'>, i: number) => i % g.cols;
 
 export function createGrid(rows: number, cols: number, fill: string | null = null): Grid {
-  const n = rows * cols;
-  return { rows, cols, cells: new Array(n).fill(fill), done: '0'.repeat(n) };
+  return { rows, cols, cells: new Array(rows * cols).fill(fill) };
 }
 
 /** Redimensiona o grid mantendo o conteúdo ancorado no canto superior esquerdo. */
 export function resizeGrid(g: Grid, rows: number, cols: number): Grid {
   const out = createGrid(rows, cols);
-  const done = out.done.split('');
   for (let r = 0; r < Math.min(rows, g.rows); r++) {
-    for (let c = 0; c < Math.min(cols, g.cols); c++) {
-      out.cells[idx(out, r, c)] = g.cells[idx(g, r, c)];
-      done[idx(out, r, c)] = g.done[idx(g, r, c)];
-    }
+    for (let c = 0; c < Math.min(cols, g.cols); c++) out.cells[idx(out, r, c)] = g.cells[idx(g, r, c)];
   }
-  out.done = done.join('');
   return out;
-}
-
-export const isDone = (g: Grid, i: number) => g.done.charCodeAt(i) === 49; // '1'
-
-export function setDone(g: Grid, indices: number[], value: boolean): Grid {
-  const arr = g.done.split('');
-  const ch = value ? '1' : '0';
-  for (const i of indices) arr[i] = ch;
-  return { ...g, done: arr.join('') };
-}
-
-export function countDone(g: Grid): number {
-  let n = 0;
-  for (let i = 0; i < g.done.length; i++) if (g.done.charCodeAt(i) === 49) n++;
-  return n;
 }
 
 export interface ColorRun {
@@ -131,29 +110,6 @@ export function positionInfo(g: Grid, order: WorkOrder, cell: number): PositionI
   };
 }
 
-/** Marca como feitas todas as células da ordem de trabalho até `cell` (inclusive) e desmarca as seguintes. */
-export function markUpTo(g: Grid, order: WorkOrder, cell: number): Grid {
-  const end = order.workIndexOf(cell);
-  const arr = g.done.split('');
-  for (let w = 0; w < order.totalStitches; w++) arr[order.cellAt(w)] = w <= end ? '1' : '0';
-  return { ...g, done: arr.join('') };
-}
-
-/** Próxima célula na ordem de trabalho (ou null se acabou). */
-export function nextCell(order: WorkOrder, cell: number | null | undefined, steps = 1): number | null {
-  const w = (cell == null ? -1 : order.workIndexOf(cell)) + steps;
-  return w < 0 || w >= order.totalStitches ? null : order.cellAt(w);
-}
-
-/** Primeira célula ainda não feita na ordem de trabalho. */
-export function firstPendingCell(g: Grid, order: WorkOrder): number | null {
-  for (let w = 0; w < order.totalStitches; w++) {
-    const c = order.cellAt(w);
-    if (!isDone(g, c)) return c;
-  }
-  return null;
-}
-
 /** Substitui todas as ocorrências de uma cor por outra (mesclar cores). */
 export function replaceColor(g: Grid, fromId: string, toId: string | null): Grid {
   return { ...g, cells: g.cells.map((c) => (c === fromId ? toId : c)) };
@@ -172,30 +128,6 @@ export function colorStats(g: Grid, order: WorkOrder): Map<string, { stitches: n
     }
   }
   return stats;
-}
-
-export type AdvanceKind = 'stitch' | 'color' | 'row';
-
-/**
- * Para onde avançar a partir da última célula feita:
- * - stitch: próximo ponto
- * - color: fim do bloco de cor atual (ou do próximo bloco, se já está no fim)
- * - row: fim da carreira atual (ou da próxima, se já está no fim)
- */
-export function advanceTarget(g: Grid, order: WorkOrder, last: number | null | undefined, kind: AdvanceKind): number | null {
-  const start = nextCell(order, last); // primeiro ponto ainda não feito depois do último
-  if (start == null || kind === 'stitch') return start;
-  const p = positionInfo(g, order, start);
-  return nextCell(order, start, kind === 'color' ? p.remainingInRun : p.remainingInRow);
-}
-
-/** Células na ordem de trabalho depois de `from` (exclusivo) até `to` (inclusivo). */
-export function cellsBetween(order: WorkOrder, from: number | null | undefined, to: number): number[] {
-  const a = from == null ? 0 : order.workIndexOf(from) + 1;
-  const b = order.workIndexOf(to);
-  const out: number[] = [];
-  for (let w = a; w <= b; w++) out.push(order.cellAt(w));
-  return out;
 }
 
 /** Balde de tinta: pinta a região contínua (4 vizinhos) da mesma cor. */

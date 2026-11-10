@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,19 +6,9 @@ import { useProject, useProjects } from '../../../store/projects';
 import { GridView } from '../../../components/GridView';
 import { ColorEditor } from '../../../components/ColorEditor';
 import { Button, Muted, Row, Segmented, Title } from '../../../components/ui';
-import {
-  advanceTarget,
-  cellsBetween,
-  countDone,
-  floodFill,
-  isDone,
-  markUpTo,
-  nextCell,
-  positionInfo,
-  replaceColor,
-  setDone,
-  type AdvanceKind,
-} from '../../../lib/grid';
+import { floodFill, positionInfo, replaceColor } from '../../../lib/grid';
+import { advance, clampProgress, isFinished, lastDoneCell, markedThrough, nextCellToWork, stepBack, type AdvanceKind } from '../../../lib/progress';
+import { canUndo, emptyHistory, record, undo as undoHistory } from '../../../lib/history';
 import { makePaletteColor, textColorOn } from '../../../lib/colors';
 import type { Grid, PaletteColor, Project, ProjectWork, StartCorner, WorkMode } from '../../../lib/types';
 import type { WorkOrder } from '../../../lib/workOrder';
@@ -28,7 +18,6 @@ import { useSettings } from '../../../store/settings';
 import { colors, space } from '../../../theme';
 
 type Mode = 'progress' | 'paint';
-type TapAction = 'upto' | 'toggle' | 'select';
 type PaintTool = 'brush' | 'bucket';
 
 export default function GridScreen() {
@@ -37,14 +26,12 @@ export default function GridScreen() {
   const update = useProjects((s) => s.updateProject);
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('progress');
-  const [tapAction, setTapAction] = useState<TapAction>('upto');
   const [tool, setTool] = useState<PaintTool>('brush');
   const [cellSize, setCellSize] = useState(18);
   const [activeColor, setActiveColor] = useState<string | null>(project?.palette[0]?.id ?? null);
   const [editing, setEditing] = useState<PaletteColor | 'new' | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const history = useRef<{ grid: Grid; lastCell: number | null | undefined; palette: PaletteColor[] }[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
+  const [history, setHistory] = useState(() => emptyHistory<Snapshot>());
   const usage = useMemoUsage(project?.grid);
   const order = useWorkOrder(project);
 
@@ -58,47 +45,43 @@ export default function GridScreen() {
   }
   const grid = project.grid;
 
-  const commit = (patch: Partial<Project>) => {
-    history.current.push({ grid, lastCell: project.lastCell, palette: project.palette });
-    if (history.current.length > 50) history.current.shift();
-    setCanUndo(true);
+  const done = clampProgress(order, project.progress ?? 0);
+  const total = order.totalStitches;
+  const finished = isFinished(order, done);
+
+  const commit = (patch: Partial<Snapshot>) => {
+    setHistory((h) => record(h, { grid, palette: project.palette, progress: done }));
     update(project.id, patch);
   };
 
   const undo = () => {
-    const prev = history.current.pop();
-    setCanUndo(history.current.length > 0);
-    if (prev) update(project.id, { grid: prev.grid, lastCell: prev.lastCell, palette: prev.palette });
+    const step = undoHistory(history);
+    if (!step) return;
+    setHistory(step.history);
+    update(project.id, step.state);
+  };
+
+  const setProgress = (progress: number) => {
+    if (progress !== done) commit({ progress });
   };
 
   const onCellPress = (cell: number) => {
-    if (mode === 'paint') {
-      if (tool === 'bucket') commit({ grid: floodFill(grid, cell, activeColor) });
-      else if (grid.cells[cell] !== activeColor) {
-        const cells = [...grid.cells];
-        cells[cell] = activeColor;
-        commit({ grid: { ...grid, cells } });
-      }
-      return;
+    if (mode === 'progress') return setProgress(markedThrough(order, cell));
+    if (tool === 'bucket') commit({ grid: floodFill(grid, cell, activeColor) });
+    else if (grid.cells[cell] !== activeColor) {
+      const cells = [...grid.cells];
+      cells[cell] = activeColor;
+      commit({ grid: { ...grid, cells } });
     }
-    if (tapAction === 'select') return update(project.id, { lastCell: cell });
-    if (tapAction === 'toggle') {
-      const value = !isDone(grid, cell);
-      return commit({ grid: setDone(grid, [cell], value), lastCell: cell });
-    }
-    commit({ grid: markUpTo(grid, order, cell), lastCell: cell });
   };
 
-  const advance = (kind: AdvanceKind) => {
-    const target = advanceTarget(grid, order, project.lastCell, kind);
-    if (target == null) return Alert.alert('Fim do gráfico', 'Todos os pontos foram feitos. 🎉');
-    commit({ grid: setDone(grid, cellsBetween(order, project.lastCell, target), true), lastCell: target });
-  };
+  const go = (kind: AdvanceKind) => setProgress(advance(grid, order, done, kind));
 
-  const back = () => {
-    if (project.lastCell == null) return;
-    commit({ grid: setDone(grid, [project.lastCell], false), lastCell: nextCell(order, project.lastCell, -1) });
-  };
+  // o que o botão grande vai fazer: quantos pontos, de que cor
+  const nextCell = nextCellToWork(order, done);
+  const nextRun = nextCell == null ? null : positionInfo(grid, order, nextCell);
+  const nextColor = nextRun?.colorId ? project.palette.find((c) => c.id === nextRun.colorId) : undefined;
+  const nextCount = nextRun ? nextRun.remainingInRun + 1 : 0;
 
   const saveColor = (c: { name: string; hex: string }) => {
     if (editing === 'new') {
@@ -124,9 +107,6 @@ export default function GridScreen() {
     setEditing(null);
   };
 
-  const total = grid.rows * grid.cols;
-  const done = countDone(grid);
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={st.toolbar}>
@@ -146,34 +126,45 @@ export default function GridScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} lastCell={mode === 'progress' ? project.lastCell : null} onCellPress={onCellPress} showDone={mode === 'progress'} />
+        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} done={mode === 'progress' ? done : 0} currentCell={mode === 'progress' ? lastDoneCell(order, done) : null} onCellPress={onCellPress} />
       </View>
 
       <View style={[st.panel, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
         {mode === 'progress' ? (
           <>
-            <PositionPanel project={project} order={order} />
+            <PositionPanel project={project} order={order} cell={lastDoneCell(order, done)} />
             <Row style={{ justifyContent: 'space-between' }}>
               <Muted>
                 {done}/{total} pontos ({total ? Math.round((done / total) * 100) : 0}%)
               </Muted>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo} />
+              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} />
             </Row>
-            <Row>
-              <Button small variant="secondary" title="−1" onPress={back} disabled={project.lastCell == null} />
-              <Button small title="+1 ponto" onPress={() => advance('stitch')} style={{ flex: 1 }} />
-              <Button small variant="secondary" title="Fim da cor" onPress={() => advance('color')} />
-              <Button small variant="secondary" title="Fim da carreira" onPress={() => advance('row')} />
-            </Row>
-            <Segmented
-              value={tapAction}
-              onChange={setTapAction}
-              options={[
-                { value: 'upto', label: 'Toque: feito até aqui' },
-                { value: 'toggle', label: 'Marcar 1' },
-                { value: 'select', label: 'Só ver' },
-              ]}
-            />
+            <View style={st.secondary}>
+              <Button small variant="secondary" title="−1" onPress={() => setProgress(stepBack(done))} disabled={done === 0} style={st.secondaryBtn} />
+              <Button small variant="secondary" title="+1" onPress={() => go('stitch')} disabled={finished} style={st.secondaryBtn} />
+              <Button small variant="secondary" title="Fim da carreira" onPress={() => go('row')} disabled={finished} style={[st.secondaryBtn, { flex: 2 }]} />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Até o fim da cor"
+              onPress={() => go('color')}
+              disabled={finished}
+              style={({ pressed }) => [st.main, finished && st.mainDone, pressed && { opacity: 0.8 }]}
+            >
+              {finished ? (
+                <Text style={st.mainTitle}>Gráfico concluído 🎉</Text>
+              ) : (
+                <>
+                  <Text style={st.mainTitle}>Até o fim da cor</Text>
+                  <View style={st.mainHint}>
+                    <View style={[st.mainSwatch, { backgroundColor: nextColor?.hex ?? '#fff' }]} />
+                    <Text style={st.mainSub}>
+                      +{nextCount} {nextColor?.name ?? 'vazio'}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </Pressable>
           </>
         ) : (
           <>
@@ -210,7 +201,7 @@ export default function GridScreen() {
                   ]}
                 />
               </View>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo} />
+              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} />
             </Row>
           </>
         )}
@@ -234,13 +225,15 @@ export default function GridScreen() {
         onClose={() => setShowSettings(false)}
         onChange={(work) => update(project.id, { work })}
         onReset={() => {
-          commit({ grid: { ...grid, done: '0'.repeat(total) }, lastCell: null });
+          setProgress(0);
           setShowSettings(false);
         }}
       />
     </View>
   );
 }
+
+type Snapshot = Pick<Project, 'grid' | 'palette' | 'progress'>;
 
 function useMemoUsage(grid: Grid | undefined) {
   const cells = grid?.cells;
@@ -252,11 +245,10 @@ function useMemoUsage(grid: Grid | undefined) {
 }
 
 /** Mostra onde está o ponto atual, para não precisar contar no meio da carreira. */
-function PositionPanel({ project, order }: { project: Project; order: WorkOrder }) {
+function PositionPanel({ project, order, cell }: { project: Project; order: WorkOrder; cell: number | null }) {
   const grid = project.grid!;
-  const cell = project.lastCell;
-  if (cell == null || cell >= grid.cells.length) {
-    return <Muted>Toque numa célula (ou em “+1 ponto”) para começar. A posição do ponto atual aparece aqui.</Muted>;
+  if (cell == null) {
+    return <Muted>Toque numa célula (ou num dos botões) para começar. A posição do ponto atual aparece aqui.</Muted>;
   }
   const p = positionInfo(grid, order, cell);
   const byId = new Map(project.palette.map((c) => [c.id, c]));
@@ -385,6 +377,14 @@ const st = StyleSheet.create({
   small: { fontSize: 13, color: colors.muted, fontWeight: '400' },
   text: { fontSize: 15, color: colors.text, flexShrink: 1 },
   dir: { fontSize: 13, color: colors.accent, fontWeight: '600' },
+  secondary: { flexDirection: 'row', gap: space.sm },
+  secondaryBtn: { flex: 1, minHeight: 44 },
+  main: { minHeight: 72, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 2 },
+  mainDone: { backgroundColor: colors.accent },
+  mainTitle: { color: colors.primaryText, fontSize: 22, fontWeight: '700' },
+  mainHint: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mainSwatch: { width: 16, height: 16, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+  mainSub: { color: colors.primaryText, fontSize: 15, fontWeight: '600' },
   swatch: { width: 22, height: 22, borderRadius: 4, borderWidth: 1, borderColor: colors.border },
   chip: { minWidth: 64, height: 48, borderRadius: 10, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
   chipActive: { borderWidth: 3, borderColor: colors.text },

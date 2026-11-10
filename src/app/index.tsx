@@ -3,7 +3,6 @@ import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { Link, router, Stack } from 'expo-router';
 import { useProjects } from '../store/projects';
 import { Button, Card, Field, Muted, Row, styles, Title } from '../components/ui';
-import { countDone } from '../lib/grid';
 import { deleteProjectFiles } from '../lib/native/files';
 import { colors, space } from '../theme';
 
@@ -63,7 +62,7 @@ export default function Home() {
         ListEmptyComponent={hydrated ? <Muted style={{ textAlign: 'center', marginTop: space.lg }}>Nenhum projeto ainda.</Muted> : undefined}
         renderItem={({ item }) => {
           const total = item.grid ? item.grid.rows * item.grid.cols : 0;
-          const done = item.grid ? countDone(item.grid) : 0;
+          const done = item.grid ? Math.min(item.progress ?? 0, total) : 0;
           return (
             <Pressable onPress={() => router.push(`/project/${item.id}`)} onLongPress={() => confirmDelete(item.id, item.name)}>
               <Card>

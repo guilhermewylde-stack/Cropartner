@@ -4,7 +4,6 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useProject, useProjects } from '../../../store/projects';
 import { Button, Card, Field, Muted, Row, styles, Title } from '../../../components/ui';
 import { deleteSourceFile, pickDocuments, pickImages, takePhoto } from '../../../lib/native/files';
-import { countDone } from '../../../lib/grid';
 import type { SourceFile } from '../../../lib/types';
 import { colors, space } from '../../../theme';
 
@@ -38,7 +37,7 @@ export default function ProjectScreen() {
     ]);
 
   const total = project.grid ? project.grid.rows * project.grid.cols : 0;
-  const done = project.grid ? countDone(project.grid) : 0;
+  const done = project.grid ? Math.min(project.progress ?? 0, total) : 0;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

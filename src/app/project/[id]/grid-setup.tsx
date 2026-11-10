@@ -38,7 +38,7 @@ export default function GridSetup() {
 
   const save = (grid: Grid, palette: PaletteColor[]) => {
     const doSave = () => {
-      update(project.id, { grid, palette, lastCell: null });
+      update(project.id, { grid, palette, progress: 0 });
       router.replace(`/project/${project.id}/grid`);
     };
     if (project.grid) {
@@ -134,7 +134,7 @@ export default function GridSetup() {
           <Title>Resultado</Title>
           <Muted>{preview.palette.length} cores detectadas. Você poderá trocar e mesclar cores depois.</Muted>
           <View style={{ height: 320, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }}>
-            <GridView grid={preview.grid} palette={preview.palette} order={straightRows(preview.grid, resolveWork(project.work, { leftHanded }))} cellSize={Math.max(4, Math.min(14, Math.floor(300 / Math.max(rows, cols))))} showDone={false} />
+            <GridView grid={preview.grid} palette={preview.palette} order={straightRows(preview.grid, resolveWork(project.work, { leftHanded }))} cellSize={Math.max(4, Math.min(14, Math.floor(300 / Math.max(rows, cols))))} />
           </View>
           <Row>
             {preview.palette.map((p) => (
