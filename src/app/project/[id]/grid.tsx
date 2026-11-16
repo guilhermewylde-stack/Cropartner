@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -6,11 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProject, useProjects } from '../../../store/projects';
 import { GridView } from '../../../components/GridView';
 import { ColorEditor } from '../../../components/ColorEditor';
-import { Button, Muted, Row, Segmented, Title } from '../../../components/ui';
-import { floodFill, positionInfo, replaceColor } from '../../../lib/grid';
+import { Button, Muted, Segmented, Title } from '../../../components/ui';
+import { colorUsage, floodFill, paintCells, positionInfo } from '../../../lib/grid';
+import { addColor, mergeColors, removeColor, updateColor, type Artwork } from '../../../lib/palette';
 import { advance, clampProgress, isFinished, lastDoneCell, markedThrough, nextCellToWork, stepBack, type AdvanceKind } from '../../../lib/progress';
 import { canUndo, emptyHistory, record, undo as undoHistory } from '../../../lib/history';
-import { makePaletteColor, textColorOn } from '../../../lib/colors';
+import { textColorOn } from '../../../lib/colors';
 import type { Grid, PaletteColor, Project, ProjectWork, StartCorner, WorkMode } from '../../../lib/types';
 import type { WorkOrder } from '../../../lib/workOrder';
 import { defaultStartCorner } from '../../../lib/workOrder';
@@ -19,7 +20,7 @@ import { useSettings } from '../../../store/settings';
 import { colors, space } from '../../../theme';
 
 type Mode = 'progress' | 'paint';
-type PaintTool = 'brush' | 'bucket';
+type PaintTool = 'brush' | 'bucket' | 'move';
 
 export default function GridScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,9 +33,13 @@ export default function GridScreen() {
   const [activeColor, setActiveColor] = useState<string | null>(project?.palette[0]?.id ?? null);
   const [editing, setEditing] = useState<PaletteColor | 'new' | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [history, setHistory] = useState(() => emptyHistory<Snapshot>());
-  const usage = useMemoUsage(project?.grid);
+  // dois históricos: desfazer uma pintura nunca mexe no progresso, e vice-versa
+  const [progressHistory, setProgressHistory] = useState(() => emptyHistory<number>());
+  const [editHistory, setEditHistory] = useState(() => emptyHistory<Artwork>());
+  const cells = project?.grid?.cells;
+  const usage = useMemo(() => colorUsage({ cells: cells ?? [] }), [cells]);
   const order = useWorkOrder(project);
+  const strokeOpen = useRef(false);
   useKeepAwake(); // mãos ocupadas: a tela não apaga enquanto o grid está aberto
 
   if (!project || !project.grid || !order) {
@@ -50,30 +55,53 @@ export default function GridScreen() {
   const done = clampProgress(order, project.progress ?? 0);
   const finished = isFinished(order, done);
 
-  const commit = (patch: Partial<Snapshot>) => {
-    setHistory((h) => record(h, { grid, palette: project.palette, progress: done }));
-    update(project.id, patch);
-  };
-
-  const undo = () => {
-    const step = undoHistory(history);
-    if (!step) return;
-    setHistory(step.history);
-    update(project.id, step.state);
-  };
-
   const setProgress = (progress: number) => {
-    if (progress !== done) commit({ progress });
+    if (progress === done) return;
+    setProgressHistory((h) => record(h, done));
+    update(project.id, { progress });
+  };
+
+  const undoProgress = () => {
+    const step = undoHistory(progressHistory);
+    if (!step) return;
+    setProgressHistory(step.history);
+    update(project.id, { progress: step.state });
+  };
+
+  /** Aplica uma alteração de desenho/paleta como um passo de desfazer. O progresso não entra. */
+  const edit = (next: Partial<Artwork>) => {
+    const art: Artwork = { grid, palette: project.palette };
+    if ((next.grid ?? art.grid) === art.grid && (next.palette ?? art.palette) === art.palette) return;
+    setEditHistory((h) => record(h, art));
+    update(project.id, next);
+  };
+
+  const undoEdit = () => {
+    const step = undoHistory(editHistory);
+    if (!step) return;
+    setEditHistory(step.history);
+    update(project.id, step.state);
   };
 
   const onCellPress = (cell: number) => {
     if (mode === 'progress') return setProgress(markedThrough(order, cell));
-    if (tool === 'bucket') commit({ grid: floodFill(grid, cell, activeColor) });
-    else if (grid.cells[cell] !== activeColor) {
-      const cells = [...grid.cells];
-      cells[cell] = activeColor;
-      commit({ grid: { ...grid, cells } });
+    if (tool === 'bucket') edit({ grid: floodFill(grid, cell, activeColor) });
+  };
+
+  // Pincel: o traço inteiro (do toque até soltar) é um passo só de desfazer. Os avisos do arrasto
+  // chegam mais rápido que a tela redesenha, então o grid é lido direto do armazenamento.
+  const onPaint = (cells: number[], first: boolean) => {
+    const current = useProjects.getState().projects[project.id];
+    if (!current?.grid) return;
+    if (first) strokeOpen.current = false;
+    const painted = paintCells(current.grid, cells, activeColor);
+    if (painted === current.grid) return;
+    if (!strokeOpen.current) {
+      strokeOpen.current = true;
+      const before: Artwork = { grid: current.grid, palette: current.palette };
+      setEditHistory((h) => record(h, before));
     }
+    update(project.id, { grid: painted });
   };
 
   const go = (kind: AdvanceKind) => setProgress(advance(grid, order, done, kind));
@@ -84,27 +112,30 @@ export default function GridScreen() {
   const nextColor = nextRun?.colorId ? project.palette.find((c) => c.id === nextRun.colorId) : undefined;
   const nextCount = nextRun ? nextRun.remainingInRun + 1 : 0;
 
+  const activeEntry = project.palette.find((p) => p.id === activeColor);
+
   const saveColor = (c: { name: string; hex: string }) => {
     if (editing === 'new') {
-      const nc = makePaletteColor(c.hex, c.name);
-      commit({ palette: [...project.palette, nc] });
-      setActiveColor(nc.id);
+      const added = addColor(project.palette, c);
+      edit({ palette: added.palette });
+      setActiveColor(added.color.id);
     } else if (editing) {
-      commit({ palette: project.palette.map((p) => (p.id === editing.id ? { ...p, ...c } : p)) });
+      edit({ palette: updateColor(project.palette, editing.id, c) });
     }
     setEditing(null);
   };
 
   const mergeColor = (intoId: string) => {
     if (!editing || editing === 'new') return;
-    commit({ grid: replaceColor(grid, editing.id, intoId), palette: project.palette.filter((p) => p.id !== editing.id) });
+    edit(mergeColors({ grid, palette: project.palette }, editing.id, intoId));
     if (activeColor === editing.id) setActiveColor(intoId);
     setEditing(null);
   };
 
   const deleteColor = () => {
     if (!editing || editing === 'new') return;
-    commit({ grid: replaceColor(grid, editing.id, null), palette: project.palette.filter((p) => p.id !== editing.id) });
+    edit(removeColor({ grid, palette: project.palette }, editing.id));
+    if (activeColor === editing.id) setActiveColor(null);
     setEditing(null);
   };
 
@@ -128,7 +159,16 @@ export default function GridScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <GridView grid={grid} palette={project.palette} order={order} cellSize={cellSize} done={mode === 'progress' ? done : 0} currentCell={mode === 'progress' ? (lastDoneCell(order, done) ?? nextCell) : null} onCellPress={onCellPress} />
+        <GridView
+          grid={grid}
+          palette={project.palette}
+          order={order}
+          cellSize={cellSize}
+          done={mode === 'progress' ? done : 0}
+          currentCell={mode === 'progress' ? (lastDoneCell(order, done) ?? nextCell) : null}
+          onCellPress={mode === 'paint' && tool === 'move' ? undefined : onCellPress}
+          onPaint={mode === 'paint' && tool === 'brush' ? onPaint : undefined}
+        />
       </View>
 
       <View style={[st.panel, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
@@ -136,7 +176,7 @@ export default function GridScreen() {
           <>
             <PositionPanel grid={grid} palette={project.palette} order={order} done={done} />
             <View style={st.secondary}>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} style={[st.secondaryBtn, { flex: 1.1 }]} />
+              <Button small variant="ghost" title="Desfazer" onPress={undoProgress} disabled={!canUndo(progressHistory)} style={[st.secondaryBtn, { flex: 1.1 }]} />
               <Button small variant="secondary" title="−1" onPress={() => setProgress(stepBack(done))} disabled={done === 0} style={[st.secondaryBtn, { flex: 0.7 }]} />
               <Button small variant="secondary" title="+1" onPress={() => go('stitch')} disabled={finished} style={[st.secondaryBtn, { flex: 0.7 }]} />
               <Button small variant="secondary" title="Fim da carreira" onPress={() => go('row')} disabled={finished} style={[st.secondaryBtn, { flex: 1.8 }]} />
@@ -186,20 +226,27 @@ export default function GridScreen() {
                 <Text style={{ fontSize: 20, color: colors.primary }}>＋</Text>
               </Pressable>
             </ScrollView>
-            <Muted>Toque numa cor para pintar. Segure uma cor para trocar o tom (muda no grid inteiro), renomear ou mesclar.</Muted>
-            <Row>
-              <View style={{ flex: 1 }}>
-                <Segmented
-                  value={tool}
-                  onChange={setTool}
-                  options={[
-                    { value: 'brush', label: 'Pincel' },
-                    { value: 'bucket', label: 'Balde' },
-                  ]}
-                />
-              </View>
-              <Button small variant="ghost" title="Desfazer" onPress={undo} disabled={!canUndo(history)} />
-            </Row>
+            <Segmented
+              value={tool}
+              onChange={setTool}
+              options={[
+                { value: 'brush', label: 'Pincel' },
+                { value: 'bucket', label: 'Balde' },
+                { value: 'move', label: 'Mover' },
+              ]}
+            />
+            <Muted>{TOOL_HINT[tool]}</Muted>
+            <View style={st.secondary}>
+              <Button small variant="ghost" title="Desfazer" onPress={undoEdit} disabled={!canUndo(editHistory)} style={st.secondaryBtn} />
+              <Button
+                small
+                variant="secondary"
+                title={activeEntry ? `Editar ${activeEntry.name}` : 'Editar cor'}
+                onPress={() => activeEntry && setEditing(activeEntry)}
+                disabled={!activeEntry}
+                style={[st.secondaryBtn, { flex: 2 }]}
+              />
+            </View>
           </>
         )}
       </View>
@@ -230,16 +277,11 @@ export default function GridScreen() {
   );
 }
 
-type Snapshot = Pick<Project, 'grid' | 'palette' | 'progress'>;
-
-function useMemoUsage(grid: Grid | undefined) {
-  const cells = grid?.cells;
-  return useMemo(() => {
-    const m = new Map<string, number>();
-    for (const c of cells ?? []) if (c) m.set(c, (m.get(c) ?? 0) + 1);
-    return m;
-  }, [cells]);
-}
+const TOOL_HINT: Record<PaintTool, string> = {
+  brush: 'Toque ou arraste para pintar. Para rolar o gráfico, use “Mover”.',
+  bucket: 'Toque numa área para pintar a região inteira da mesma cor.',
+  move: 'Arraste para rolar o gráfico sem pintar nada.',
+};
 
 const ARROW = { ltr: '→', rtl: '←' } as const;
 

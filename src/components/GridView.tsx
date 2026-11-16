@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View, type GestureResponderEvent, type NativeScr
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 import type { Grid, PaletteColor } from '../lib/types';
 import type { WorkOrder } from '../lib/workOrder';
+import { lineCells } from '../lib/grid';
 import { colors } from '../theme';
 
 const EMPTY = '#FFFFFF';
@@ -17,13 +18,18 @@ interface Props {
   /** célula destacada (com a carreira dela) */
   currentCell?: number | null;
   onCellPress?: (cell: number) => void;
+  /**
+   * Pincel: com `onPaint`, arrastar o dedo pinta em vez de rolar o gráfico. Recebe as células por
+   * onde o dedo passou desde o último aviso; `first` marca o começo de um traço.
+   */
+  onPaint?: (cells: number[], first: boolean) => void;
 }
 
 /**
  * Desenha o gráfico com SVG. Células vizinhas da mesma cor são agrupadas em um único retângulo
  * por linha, o que mantém gráficos grandes (100x100+) leves.
  */
-export function GridView({ grid, palette, order, cellSize, done = 0, currentCell, onCellPress }: Props) {
+export function GridView({ grid, palette, order, cellSize, done = 0, currentCell, onCellPress, onPaint }: Props) {
   const { rows, cols } = grid;
   const gutter = Math.max(22, Math.round(cellSize * 1.4));
   const width = gutter * 2 + cols * cellSize;
@@ -146,16 +152,65 @@ export function GridView({ grid, palette, order, cellSize, done = 0, currentCell
     offset.current.y = e.nativeEvent.contentOffset.y;
   };
 
-  const handlePress = (e: GestureResponderEvent) => {
-    if (!onCellPress) return;
+  const cellAt = (e: GestureResponderEvent): number | null => {
     // no aparelho o toque traz locationX/Y; no navegador (build web) o clique traz offsetX/Y
     const ne = e.nativeEvent as typeof e.nativeEvent & { offsetX?: number; offsetY?: number };
     const x = (ne.locationX ?? ne.offsetX ?? Number.NaN) - gutter;
     const y = (ne.locationY ?? ne.offsetY ?? Number.NaN) - gutter;
     const c = Math.floor(x / cellSize);
     const r = Math.floor(y / cellSize);
-    if (r >= 0 && r < rows && c >= 0 && c < cols) onCellPress(r * cols + c);
+    return r >= 0 && r < rows && c >= 0 && c < cols ? r * cols + c : null;
   };
+
+  const handlePress = (e: GestureResponderEvent) => {
+    const cell = cellAt(e);
+    if (cell != null) onCellPress?.(cell);
+  };
+
+  // traço do pincel: última célula por onde o dedo passou (null = fora do gráfico)
+  const stroke = useRef<number | null>(null);
+  const brush = {
+    onStartShouldSetResponder: () => true,
+    onResponderGrant: (e: GestureResponderEvent) => {
+      const cell = cellAt(e);
+      stroke.current = cell;
+      if (cell != null) onPaint?.([cell], true);
+    },
+    onResponderMove: (e: GestureResponderEvent) => {
+      const cell = cellAt(e);
+      const prev = stroke.current;
+      if (cell == null || cell === prev) return;
+      stroke.current = cell;
+      // liga os dois toques: um arrasto rápido pula células
+      onPaint?.(prev == null ? [cell] : lineCells(grid, prev, cell).slice(1), false);
+    },
+    onResponderTerminationRequest: () => false,
+  };
+  const painting = !!onPaint;
+  const drawing = (
+    <View pointerEvents="none">
+      <Svg width={width} height={height}>
+        <G transform={`translate(${gutter}, ${gutter})`}>
+          {colorRects}
+          {doneRects}
+          {lines}
+          {lastRow != null && <Rect x={0} y={lastRow * cellSize} width={cols * cellSize} height={cellSize} fill="none" stroke={colors.highlight} strokeWidth={2} />}
+          {lastRow != null && lastCol != null && (
+            <Rect
+              x={lastCol * cellSize + 1}
+              y={lastRow * cellSize + 1}
+              width={cellSize - 2}
+              height={cellSize - 2}
+              fill="none"
+              stroke="#E53935"
+              strokeWidth={Math.max(2, cellSize / 6)}
+            />
+          )}
+        </G>
+        {labels}
+      </Svg>
+    </View>
+  );
 
   return (
     <ScrollView
@@ -164,35 +219,19 @@ export function GridView({ grid, palette, order, cellSize, done = 0, currentCell
       contentContainerStyle={{ flexGrow: 1 }}
       onScroll={onScrollY}
       scrollEventThrottle={32}
+      scrollEnabled={!painting}
       onLayout={(e) => setViewport({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
     >
-      <ScrollView ref={hScroll} horizontal contentContainerStyle={{ flexGrow: 1 }} onScroll={onScrollX} scrollEventThrottle={32}>
-        <Pressable onPress={handlePress} style={{ width, height }}>
-          <View pointerEvents="none">
-            <Svg width={width} height={height}>
-              <G transform={`translate(${gutter}, ${gutter})`}>
-                {colorRects}
-                {doneRects}
-                {lines}
-                {lastRow != null && (
-                  <Rect x={0} y={lastRow * cellSize} width={cols * cellSize} height={cellSize} fill="none" stroke={colors.highlight} strokeWidth={2} />
-                )}
-                {lastRow != null && lastCol != null && (
-                  <Rect
-                    x={lastCol * cellSize + 1}
-                    y={lastRow * cellSize + 1}
-                    width={cellSize - 2}
-                    height={cellSize - 2}
-                    fill="none"
-                    stroke="#E53935"
-                    strokeWidth={Math.max(2, cellSize / 6)}
-                  />
-                )}
-              </G>
-              {labels}
-            </Svg>
+      <ScrollView ref={hScroll} horizontal contentContainerStyle={{ flexGrow: 1 }} onScroll={onScrollX} scrollEventThrottle={32} scrollEnabled={!painting}>
+        {painting ? (
+          <View {...brush} style={{ width, height }}>
+            {drawing}
           </View>
-        </Pressable>
+        ) : (
+          <Pressable onPress={handlePress} style={{ width, height }}>
+            {drawing}
+          </Pressable>
+        )}
       </ScrollView>
     </ScrollView>
   );

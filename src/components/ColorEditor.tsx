@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isValidHex, normalizeHex, SWATCHES, colorName } from '../lib/colors';
+import { shades } from '../lib/palette';
 import type { PaletteColor } from '../lib/types';
 import { Button, Field, Muted, Row, Title } from './ui';
 import { colors, space } from '../theme';
@@ -16,12 +17,16 @@ interface Props {
   onDelete?: () => void;
 }
 
-/** Editar uma cor: troca o hex (todas as células mudam juntas), renomeia ou mescla com outra cor. */
+/**
+ * Editar uma cor: troca o tom (todas as células mudam juntas), renomeia, mescla com outra cor ou
+ * exclui. Excluir uma cor em uso pede confirmação aqui mesmo.
+ */
 export function ColorEditor({ visible, color, palette, usage, onClose, onSave, onMerge, onDelete }: Props) {
   const [hex, setHex] = useState(color?.hex ?? '#C2577A');
   const [name, setName] = useState(color?.name ?? '');
   // quem usa remonta o editor (key) a cada cor aberta, então o estado inicial basta
   const [nameTouched, setNameTouched] = useState(!!color);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const valid = isValidHex(hex);
   const preview = valid ? normalizeHex(hex) : '#FFFFFF';
@@ -54,6 +59,16 @@ export function ColorEditor({ visible, color, palette, usage, onClose, onSave, o
                 <Pressable key={h} onPress={() => pick(h)} style={[s.swatch, { backgroundColor: h }, preview === h && s.swatchActive]} accessibilityLabel={colorName(h)} />
               ))}
             </View>
+            {valid && (
+              <View style={{ gap: space.xs }}>
+                <Text style={s.section}>Mais claro / mais escuro</Text>
+                <View style={s.shades}>
+                  {shades(preview).map((h) => (
+                    <Pressable key={h} onPress={() => pick(h)} style={[s.shade, { backgroundColor: h }, preview === h && s.swatchActive]} accessibilityLabel={`Tom ${h}`} />
+                  ))}
+                </View>
+              </View>
+            )}
             <Button title="Salvar" disabled={!valid} onPress={() => onSave({ hex: normalizeHex(hex), name: name.trim() || colorName(hex) })} />
             {color && onMerge && palette.length > 1 && (
               <View style={{ gap: space.sm }}>
@@ -71,7 +86,21 @@ export function ColorEditor({ visible, color, palette, usage, onClose, onSave, o
                 </Row>
               </View>
             )}
-            {color && onDelete && <Button title="Excluir cor (células ficam vazias)" variant="ghost" onPress={onDelete} />}
+            {color && onDelete && !confirmDelete && (
+              <Button title="Excluir cor" variant="ghost" onPress={() => (usage ? setConfirmDelete(true) : onDelete())} />
+            )}
+            {color && onDelete && confirmDelete && (
+              <View style={s.confirm}>
+                <Text style={s.section}>Excluir “{color.name}”?</Text>
+                <Muted>
+                  {usage} {usage === 1 ? 'ponto usa' : 'pontos usam'} esta cor e {usage === 1 ? 'vai ficar vazio' : 'vão ficar vazios'}. Dá para desfazer depois.
+                </Muted>
+                <Row>
+                  <Button small title="Excluir" variant="danger" onPress={onDelete} style={{ flex: 1 }} />
+                  <Button small title="Manter a cor" variant="secondary" onPress={() => setConfirmDelete(false)} style={{ flex: 1 }} />
+                </Row>
+              </View>
+            )}
             <Button title="Cancelar" variant="secondary" onPress={onClose} />
           </ScrollView>
         </View>
@@ -87,6 +116,9 @@ const s = StyleSheet.create({
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   swatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border },
   swatchActive: { borderWidth: 3, borderColor: colors.text },
+  shades: { flexDirection: 'row', gap: 6 },
+  shade: { flex: 1, height: 34, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  confirm: { gap: space.sm, padding: space.md, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, backgroundColor: '#fff' },
   section: { fontWeight: '700', color: colors.text },
   mergeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff' },
   dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border },

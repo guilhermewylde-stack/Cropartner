@@ -1,16 +1,15 @@
 Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
-verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3 e 4 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
+verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3, 4 e 6 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
 até o spike no iPhone (ver pendências).
 
 **Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e as issues abertas
-(#6 a #9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
+(#7 a #9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
 
 **Tarefa desta sessão:** implementar as fatias restantes **na ordem das issues**, uma por vez, com TDD
 (vermelho → verde → refatorar), testando o comportamento pela interface pública dos módulos de `src/lib/`:
 
-6. #6 Editor de cores (pincel, balde, trocar tom, renomear, mesclar, adicionar/excluir, desfazer).
 7. #7 Linha I (lista de compras por cor, calibração, linhas cadastradas).
 8. #8 Linha II (restante pelo progresso, estoque por cor, vai dar / vai faltar).
 9. #9 Backup (exportar/importar projeto ou todos, compartilhar).
@@ -31,14 +30,19 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - Linha: lista de compras + "quanto falta" + estoque por cor, linhas cadastradas pela usuária (sem catálogo de marcas).
 - Backup por arquivo, sem nuvem. Pós-v1: IA gratuita no aparelho, depois C2C.
 
-**Como o código está organizado (depois das fatias 1–5):**
+**Como o código está organizado (depois das fatias 1–6):**
 - `src/lib/workOrder.ts` — interface `WorkOrder` (célula ⇄ índice de trabalho, carreiras, sentido) + `straightRows` +
   `workOrderFor` (ponto de troca de técnica). Posição, progresso e linha recebem um `WorkOrder`, nunca o canto/modo.
 - `src/lib/progress.ts` — o progresso é **um número**: pontos feitos na ordem de trabalho (`Project.progress`). O grid
   não guarda mais `done`, e não existe mais `lastCell`.
 - `src/lib/grid.ts` — `positionInfo` (fonte única dos textos do painel, inclui `nextRun`), `rowRuns`, `colorStats`,
-  `replaceColor`, `floodFill`, `createGrid`, `resizeGrid`.
-- `src/lib/history.ts` — desfazer como módulo puro (já usado na tela do grid para progresso, pintura e paleta).
+  `replaceColor`, `floodFill`, `createGrid`, `resizeGrid`, e do pincel: `paintCells` (devolve o mesmo grid se nada
+  mudou), `lineCells` (Bresenham entre dois toques do arrasto) e `colorUsage` (células por cor).
+- `src/lib/palette.ts` — operações do editor de cores sobre `Artwork = {grid, palette}` (o progresso fica de fora):
+  `addColor`, `updateColor` (tom/nome; o id não muda), `mergeColors`, `removeColor`, `shades` (tons mais claros/escuros).
+  Nomes repetidos ganham número ("Cru 2"). As fatias 7/8 podem contar com nomes únicos na paleta.
+- `src/lib/history.ts` — desfazer como módulo puro. A tela do grid tem **dois históricos**: um do progresso (número) e
+  um das edições (`Artwork`); desfazer no modo "Pintar / cores" nunca mexe no progresso, e vice-versa.
 - `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **3**. Mudou o formato de `Project`? Suba a versão,
   escreva a migração e o teste.
 - `src/lib/crop.ts` — recorte arrastável como funções puras: `dragCrop` (recorte no início do gesto + deslocamento total
@@ -60,13 +64,15 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   O formato de `Project` não mudou (versão 3).
 - `src/store/projects.ts` (projetos) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded`; as linhas
   cadastradas da fatia 7 devem ir aqui). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
-- Telas em `src/app/`: `index`, `settings`, `project/[id]/index`, `grid-setup`, `grid`, `yarn`. A tela do grid já tem
-  modo "Pintar / cores" e `ColorEditor` do protótipo (base da fatia 6). `grid-setup` tem os modos "Em branco", "Da
+- Telas em `src/app/`: `index`, `settings`, `project/[id]/index`, `grid-setup`, `grid`, `yarn`. A tela do grid tem o modo "Pintar /
+  cores" (ferramentas Pincel / Balde / Mover; com o Pincel o `GridView` recebe `onPaint`, trava a rolagem e o arrasto
+  pinta — um traço inteiro é um passo de desfazer) e o `ColorEditor` (tom por amostras, tons claro/escuro ou hex; nome;
+  mesclar; excluir com confirmação **dentro do próprio painel**, sem `Alert`). `grid-setup` tem os modos "Em branco", "Da
   imagem" e "Do PDF" (escolher PDF → miniaturas → tocar na página → cai no modo "Da imagem" com a página selecionada)
   — o "Da imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
   de leitura aparecem no próprio cartão, não em `Alert`.
 
-**Pendências que ficaram das fatias 1–5:**
+**Pendências que ficaram das fatias 1–6:**
 - **Spike da fatia 5 no iPhone (Expo Go)** — única coisa que falta para fechar a #5: abrir um PDF real de receita em
   modo avião, ver se as miniaturas aparecem, quanto demora para a página virar imagem, e se dá para ler um gráfico de
   ~100 colunas. Se a WebView não renderizar (tela "Abrindo o PDF…" até dar o aviso de demora) ou o app fechar com PDF
@@ -77,6 +83,8 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   botão grande, confirmações de "Zerar progresso" e de excluir projeto, e "Sou canhota".
 - Fatia 4 no aparelho: arrastar o recorte dentro da tela rolável (a rolagem trava durante o arrasto), ler um print real
   do Pinterest e uma imagem HEIC da galeria, e a confirmação de substituir grid com progresso.
+- Fatia 6 no aparelho: arrastar o pincel com o dedo (traço contínuo, sem a tela rolar junto), trocar entre Pincel e
+  Mover num gráfico grande com zoom, e o teclado sobre o painel "Editar cor" ao renomear.
 - `Alert.alert` não funciona no build web, então fluxos com confirmação não aparecem nas capturas.
 
 **Dicas do ambiente (sessão na nuvem):**

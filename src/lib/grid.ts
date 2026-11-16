@@ -159,3 +159,51 @@ export function floodFill(g: Grid, start: number, colorId: string | null): Grid 
   }
   return { ...g, cells };
 }
+
+/** Pincel: pinta as células dadas. Devolve o mesmo grid se nada mudou (não gera passo de desfazer). */
+export function paintCells(g: Grid, cells: readonly number[], colorId: string | null): Grid {
+  let out: (string | null)[] | null = null;
+  for (const i of cells) {
+    if (!Number.isInteger(i) || i < 0 || i >= g.cells.length || (out ?? g.cells)[i] === colorId) continue;
+    out ??= [...g.cells];
+    out[i] = colorId;
+  }
+  return out ? { ...g, cells: out } : g;
+}
+
+/**
+ * Células entre dois toques seguidos do pincel (linha de Bresenham), para o arrasto rápido não
+ * deixar buracos. Inclui as duas pontas, na ordem de `from` para `to`.
+ */
+export function lineCells(g: Pick<Grid, 'cols'>, from: number, to: number): number[] {
+  let r = rowOf(g, from);
+  let c = colOf(g, from);
+  const r1 = rowOf(g, to);
+  const c1 = colOf(g, to);
+  const dc = Math.abs(c1 - c);
+  const dr = Math.abs(r1 - r);
+  const sc = c < c1 ? 1 : -1;
+  const sr = r < r1 ? 1 : -1;
+  let err = dc - dr;
+  const out: number[] = [];
+  for (;;) {
+    out.push(idx(g, r, c));
+    if (r === r1 && c === c1) return out;
+    const e2 = 2 * err;
+    if (e2 > -dr) {
+      err -= dr;
+      c += sc;
+    }
+    if (e2 < dc) {
+      err += dc;
+      r += sr;
+    }
+  }
+}
+
+/** Quantas células usam cada cor (as vazias não contam). */
+export function colorUsage(g: Pick<Grid, 'cells'>): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const c of g.cells) if (c) m.set(c, (m.get(c) ?? 0) + 1);
+  return m;
+}
