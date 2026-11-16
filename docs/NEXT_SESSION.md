@@ -20,6 +20,10 @@ Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas d
 o que entrou / como foi verificado / o que só dá para conferir no aparelho, e fechar a issue. **Pare e me mostre o
 resultado ao fim de cada fatia.** Não crie pull request sem eu pedir.
 
+**Ao fim da sessão (ou quando o contexto estiver acabando), atualize este arquivo** com o estado atual — fatias
+prontas, a branch em uso, mudanças na organização do código e no formato dos dados, pendências e dicas novas do
+ambiente — e faça commit e push. A sessão seguinte começa só com "leia `docs/NEXT_SESSION.md` e continue".
+
 **Decisões já tomadas (não reabrir):**
 - v1 100% no aparelho, sem IA, sem login, sem rede, rodando no **Expo Go**. Público: uso próprio e da namorada (iPhone).
 - Técnica da v1: tapestry/pixel em carreiras retas; C2C vem depois, pela interface `WorkOrder`.
