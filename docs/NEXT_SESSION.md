@@ -1,15 +1,14 @@
 Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
-verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2 e 3 estão prontas e fechadas**.
+verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3 e 4 estão prontas e fechadas**.
 
 **Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e as issues abertas
-(#4 a #9), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
+(#5 a #9), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
 
 **Tarefa desta sessão:** implementar as fatias restantes **na ordem das issues**, uma por vez, com TDD
 (vermelho → verde → refatorar), testando o comportamento pela interface pública dos módulos de `src/lib/`:
 
-4. #4 Imagem → grid (importar, recorte arrastável com grade sobreposta, leitura de cores, prévia).
 5. #5 PDF → grid (começa com um spike de WebView + pdf.js no Expo Go; plano B: development build).
 6. #6 Editor de cores (pincel, balde, trocar tom, renomear, mesclar, adicionar/excluir, desfazer).
 7. #7 Linha I (lista de compras por cor, calibração, linhas cadastradas).
@@ -31,7 +30,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - Linha: lista de compras + "quanto falta" + estoque por cor, linhas cadastradas pela usuária (sem catálogo de marcas).
 - Backup por arquivo, sem nuvem. Pós-v1: IA gratuita no aparelho, depois C2C.
 
-**Como o código está organizado (depois das fatias 1–3):**
+**Como o código está organizado (depois das fatias 1–4):**
 - `src/lib/workOrder.ts` — interface `WorkOrder` (célula ⇄ índice de trabalho, carreiras, sentido) + `straightRows` +
   `workOrderFor` (ponto de troca de técnica). Posição, progresso e linha recebem um `WorkOrder`, nunca o canto/modo.
 - `src/lib/progress.ts` — o progresso é **um número**: pontos feitos na ordem de trabalho (`Project.progress`). O grid
@@ -41,16 +40,27 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - `src/lib/history.ts` — desfazer como módulo puro (já usado na tela do grid para progresso, pintura e paleta).
 - `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **3**. Mudou o formato de `Project`? Suba a versão,
   escreva a migração e o teste.
-- `src/lib/sampling.ts`, `colors.ts`, `yarn.ts` — do protótipo, com testes; reaproveitar nas fatias 4, 6, 7 e 8.
+- `src/lib/crop.ts` — recorte arrastável como funções puras: `dragCrop` (recorte no início do gesto + deslocamento total
+  → novo recorte, com limites e tamanho mínimo) e `hitCropHandle` (qual alça o toque pega). Tudo em frações da imagem.
+- `src/lib/sampling.ts` — `sampleGridFromRGBA` (leitura de pixels) e `cropToPixels`. `colors.ts`, `yarn.ts` — do
+  protótipo, com testes; reaproveitar nas fatias 6, 7 e 8.
+- `src/components/CropEditor.tsx` — imagem + moldura arrastável + grade. Usa os handlers de responder do React Native
+  direto na `View` (sem `PanResponder`, que esbarra na regra de lint `react-hooks/refs`; sem gesture-handler).
+- `src/lib/native/imageGrid.ts` — `readGridFromImage(uri, {rows, cols, crop, maxColors})` recebe **qualquer URI de
+  imagem**; a fatia 5 (PDF) só precisa gerar uma imagem da página e reaproveitar o mesmo fluxo de recorte/leitura/prévia.
+  Erros saem como `ImageReadError` com mensagem pronta para a usuária.
 - `src/store/projects.ts` (projetos) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded`; as linhas
   cadastradas da fatia 7 devem ir aqui). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
 - Telas em `src/app/`: `index`, `settings`, `project/[id]/index`, `grid-setup`, `grid`, `yarn`. A tela do grid já tem
-  modo "Pintar / cores" e `ColorEditor` do protótipo (base da fatia 6); `grid-setup` já lê imagem com recorte por
-  porcentagens digitadas (base da fatia 4, que pede recorte arrastável).
+  modo "Pintar / cores" e `ColorEditor` do protótipo (base da fatia 6). `grid-setup` tem os modos "Em branco" e "Da
+  imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
+  de leitura aparecem no próprio cartão, não em `Alert`.
 
-**Pendências que ficaram das fatias 1–3:**
+**Pendências que ficaram das fatias 1–4:**
 - Nada foi testado em iPhone real ainda. Conferir no aparelho: tela acesa com o grid aberto, alcance do polegar no
   botão grande, confirmações de "Zerar progresso" e de excluir projeto, e "Sou canhota".
+- Fatia 4 no aparelho: arrastar o recorte dentro da tela rolável (a rolagem trava durante o arrasto), ler um print real
+  do Pinterest e uma imagem HEIC da galeria, e a confirmação de substituir grid com progresso.
 - `Alert.alert` não funciona no build web, então fluxos com confirmação não aparecem nas capturas.
 
 **Dicas do ambiente (sessão na nuvem):**
@@ -66,4 +76,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   (iPhone 13). Confira depois que `package.json` não mudou.
 - Semear dados no `localStorage`: chave `cropartner-projects`, formato `{state:{projects:{...}}, version:3}`; ajustes
   na chave `cropartner-settings`, formato `{state:{leftHanded:false}, version:1}`.
+- A captura `fullPage` não pega o conteúdo rolável das telas; para telas longas use um viewport alto
+  (`viewport: { width: 390, height: 1400 }`). O arrasto do recorte funciona com `page.mouse` no build web, e
+  `readGridFromImage` também roda lá (fonte com `uri` http servida pelo mesmo servidor estático).
 - No build web, o toque numa célula do grid funciona por clique (`GridView` aceita `offsetX/Y`).

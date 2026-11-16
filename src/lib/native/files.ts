@@ -39,9 +39,9 @@ function persist(projectId: string, uri: string, name: string, mime: string, siz
 }
 
 /** Importa PDFs e imagens pelos Arquivos do sistema. */
-export async function pickDocuments(projectId: string): Promise<SourceFile[]> {
+export async function pickDocuments(projectId: string, type: string[] = ['application/pdf', 'image/*']): Promise<SourceFile[]> {
   const res = await DocumentPicker.getDocumentAsync({
-    type: ['application/pdf', 'image/*'],
+    type,
     multiple: true,
     copyToCacheDirectory: true,
   });
@@ -50,6 +50,9 @@ export async function pickDocuments(projectId: string): Promise<SourceFile[]> {
     .map((a) => persist(projectId, a.uri, a.name, guessMime(a.name, a.mimeType)))
     .filter((x): x is SourceFile => x !== null);
 }
+
+/** Importa só imagens pelos Arquivos do sistema (iCloud Drive, Downloads…). */
+export const pickImageFiles = (projectId: string) => pickDocuments(projectId, ['image/*']);
 
 /** Importa imagens da galeria (prints de receitas, fotos de gráficos). */
 export async function pickImages(projectId: string): Promise<SourceFile[]> {

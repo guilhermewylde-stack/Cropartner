@@ -8,7 +8,7 @@ as fatias de trabalho estão nas issues do repositório.
 ## O que já faz
 
 - **Grid**
-  - *Da imagem*: recorta a área do gráfico e lê a cor de cada célula no próprio aparelho (amostra o centro da célula,
+  - *Da imagem*: você arrasta a moldura sobre a área do gráfico (com a grade por cima), confere a prévia, e o app lê a cor de cada célula no próprio aparelho (amostra o centro da célula,
     ignorando as linhas do gráfico) e agrupa numa paleta.
   - *Em branco*: cria um grid para você pintar.
 - **Trocar cores**: segure uma cor da paleta para mudar o tom (o grid inteiro muda junto), renomear, mesclar com

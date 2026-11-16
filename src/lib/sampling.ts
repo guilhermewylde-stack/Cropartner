@@ -90,8 +90,9 @@ export function cropToPixels(c: CropFractions, width: number, height: number) {
   const r = clamp(Math.max(c.left, c.right));
   const t = clamp(Math.min(c.top, c.bottom));
   const b = clamp(Math.max(c.top, c.bottom));
-  const originX = Math.floor(l * width);
-  const originY = Math.floor(t * height);
+  // a origem fica sempre dentro da imagem, mesmo com o recorte encostado na borda direita/inferior
+  const originX = Math.min(width - 1, Math.floor(l * width));
+  const originY = Math.min(height - 1, Math.floor(t * height));
   return {
     originX,
     originY,
