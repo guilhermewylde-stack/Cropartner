@@ -10,6 +10,8 @@ as fatias de trabalho estão nas issues do repositório.
 - **Grid**
   - *Da imagem*: você arrasta a moldura sobre a área do gráfico (com a grade por cima), confere a prévia, e o app lê a cor de cada célula no próprio aparelho (amostra o centro da célula,
     ignorando as linhas do gráfico) e agrupa numa paleta.
+  - *Do PDF*: escolha o PDF da receita, toque na página do gráfico e ela vira uma imagem, que segue o mesmo caminho do *Da imagem*. Funciona sem rede (pdf.js embutido, numa WebView
+    escondida). Falta validar no iPhone.
   - *Em branco*: cria um grid para você pintar.
 - **Trocar cores**: segure uma cor da paleta para mudar o tom (o grid inteiro muda junto), renomear, mesclar com
   outra cor ou excluir. Pincel e balde para pintar.
@@ -44,6 +46,6 @@ Builds de loja: `npx eas-cli@latest build -p ios` / `-p android`.
 - `src/lib/` — lógica pura e testada: `workOrder.ts` (ordem de trabalho — interface trocável; hoje, carreiras
   retas), `grid.ts` (posição, pintura), `progress.ts` (marcar/avançar/voltar), `history.ts` (desfazer), `colors.ts`, `sampling.ts` (leitura de pixels), `yarn.ts`
   (cálculo de linha), `migrate.ts` (migração dos projetos salvos)
-- `src/lib/native/` — integração com módulos nativos (arquivos, imagem)
+- `src/lib/native/` — integração com módulos nativos (arquivos, imagem, PDF)
 - `src/store/` — projetos e ajustes do aparelho (persistidos no AsyncStorage)
 - `src/components/` — `GridView` (SVG), `ColorEditor`, componentes de UI

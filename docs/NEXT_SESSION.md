@@ -1,15 +1,15 @@
 Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
-verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3 e 4 estão prontas e fechadas**.
+verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3 e 4 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
+até o spike no iPhone (ver pendências).
 
 **Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e as issues abertas
-(#5 a #9), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
+(#6 a #9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
 
 **Tarefa desta sessão:** implementar as fatias restantes **na ordem das issues**, uma por vez, com TDD
 (vermelho → verde → refatorar), testando o comportamento pela interface pública dos módulos de `src/lib/`:
 
-5. #5 PDF → grid (começa com um spike de WebView + pdf.js no Expo Go; plano B: development build).
 6. #6 Editor de cores (pincel, balde, trocar tom, renomear, mesclar, adicionar/excluir, desfazer).
 7. #7 Linha I (lista de compras por cor, calibração, linhas cadastradas).
 8. #8 Linha II (restante pelo progresso, estoque por cor, vai dar / vai faltar).
@@ -31,7 +31,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - Linha: lista de compras + "quanto falta" + estoque por cor, linhas cadastradas pela usuária (sem catálogo de marcas).
 - Backup por arquivo, sem nuvem. Pós-v1: IA gratuita no aparelho, depois C2C.
 
-**Como o código está organizado (depois das fatias 1–4):**
+**Como o código está organizado (depois das fatias 1–5):**
 - `src/lib/workOrder.ts` — interface `WorkOrder` (célula ⇄ índice de trabalho, carreiras, sentido) + `straightRows` +
   `workOrderFor` (ponto de troca de técnica). Posição, progresso e linha recebem um `WorkOrder`, nunca o canto/modo.
 - `src/lib/progress.ts` — o progresso é **um número**: pontos feitos na ordem de trabalho (`Project.progress`). O grid
@@ -50,14 +50,29 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - `src/lib/native/imageGrid.ts` — `readGridFromImage(uri, {rows, cols, crop, maxColors})` recebe **qualquer URI de
   imagem**; a fatia 5 (PDF) só precisa gerar uma imagem da página e reaproveitar o mesmo fluxo de recorte/leitura/prévia.
   Erros saem como `ImageReadError` com mensagem pronta para a usuária.
+- PDF (fatia 5): `src/lib/pdf.ts` — lógica pura (`renderScale` com limites de lado/pixels, `chunkBase64`,
+  `pdfErrorMessage`, `pageImageName`). `src/lib/native/pdfHtml.ts` — a página do renderizador (`window.__pdf.begin /
+  chunk / open / sizes / render`, respostas em JSON; o pdf.js roda na própria página, **sem Worker**, e desenha com
+  `intent: 'print'` para não depender de `requestAnimationFrame`). `src/lib/native/pdfjsBundle.ts` — pdf.js 3.11.174
+  como texto, **gerado** por `scripts/embed-pdfjs.js` (não editar; `pdfjs-dist` não é dependência do projeto).
+  `src/components/PdfHost.tsx` (WebView escondida) / `PdfHost.web.tsx` (iframe, só para o build web) e
+  `PdfPagePicker.tsx` (miniaturas em lotes de 12 → toque → página vira JPEG em `sources` com `kind: 'image'`).
+  O formato de `Project` não mudou (versão 3).
 - `src/store/projects.ts` (projetos) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded`; as linhas
   cadastradas da fatia 7 devem ir aqui). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
 - Telas em `src/app/`: `index`, `settings`, `project/[id]/index`, `grid-setup`, `grid`, `yarn`. A tela do grid já tem
-  modo "Pintar / cores" e `ColorEditor` do protótipo (base da fatia 6). `grid-setup` tem os modos "Em branco" e "Da
-  imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
+  modo "Pintar / cores" e `ColorEditor` do protótipo (base da fatia 6). `grid-setup` tem os modos "Em branco", "Da
+  imagem" e "Do PDF" (escolher PDF → miniaturas → tocar na página → cai no modo "Da imagem" com a página selecionada)
+  — o "Da imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
   de leitura aparecem no próprio cartão, não em `Alert`.
 
-**Pendências que ficaram das fatias 1–4:**
+**Pendências que ficaram das fatias 1–5:**
+- **Spike da fatia 5 no iPhone (Expo Go)** — única coisa que falta para fechar a #5: abrir um PDF real de receita em
+  modo avião, ver se as miniaturas aparecem, quanto demora para a página virar imagem, e se dá para ler um gráfico de
+  ~100 colunas. Se a WebView não renderizar (tela "Abrindo o PDF…" até dar o aviso de demora) ou o app fechar com PDF
+  pesado, o plano B é development build com módulo nativo. No build web (Chromium) tudo passou.
+- Fontes não embutidas no PDF usam a fonte do sistema (não levamos os arquivos de fonte/cMap do pdf.js); não afeta o
+  gráfico, só o texto da miniatura.
 - Nada foi testado em iPhone real ainda. Conferir no aparelho: tela acesa com o grid aberto, alcance do polegar no
   botão grande, confirmações de "Zerar progresso" e de excluir projeto, e "Sou canhota".
 - Fatia 4 no aparelho: arrastar o recorte dentro da tela rolável (a rolagem trava durante o arrasto), ler um print real
@@ -75,6 +90,8 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   (`npm install --no-save --legacy-peer-deps react-dom@19.3.0 react-native-web@~0.21.4 @expo/metro-runtime@~58.0.17`),
   exporte com `--platform web`, sirva a pasta com um servidor estático com fallback para `index.html` e use Playwright
   (iPhone 13). Confira depois que `package.json` não mudou.
+- Para testar PDF no build web: copie o PDF para a pasta exportada e semeie uma fonte `{kind: 'pdf', uri: 'http://…'}`;
+  PDFs de teste (com senha, inclusive) dá para gerar com `reportlab` (Python).
 - Semear dados no `localStorage`: chave `cropartner-projects`, formato `{state:{projects:{...}}, version:3}`; ajustes
   na chave `cropartner-settings`, formato `{state:{leftHanded:false}, version:1}`.
 - A captura `fullPage` não pega o conteúdo rolável das telas; para telas longas use um viewport alto

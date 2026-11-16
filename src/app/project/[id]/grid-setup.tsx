@@ -5,17 +5,18 @@ import { useProject, useProjects } from '../../../store/projects';
 import { Button, Card, Muted, NumberField, Row, Segmented, styles, Title } from '../../../components/ui';
 import { GridView } from '../../../components/GridView';
 import { CropEditor } from '../../../components/CropEditor';
+import { PdfPagePicker } from '../../../components/PdfPagePicker';
 import { createGrid } from '../../../lib/grid';
 import { resolveWork, straightRows } from '../../../lib/workOrder';
 import { useSettings } from '../../../store/settings';
 import { makePaletteColor } from '../../../lib/colors';
 import { FULL_IMAGE, type CropFractions } from '../../../lib/sampling';
 import { imageSize, readGridFromImage } from '../../../lib/native/imageGrid';
-import { pickImageFiles, pickImages } from '../../../lib/native/files';
+import { pickImageFiles, pickImages, pickPdfFiles } from '../../../lib/native/files';
 import type { Grid, PaletteColor, SourceFile } from '../../../lib/types';
 import { colors, space } from '../../../theme';
 
-type Method = 'blank' | 'image';
+type Method = 'blank' | 'image' | 'pdf';
 
 export default function GridSetup() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,7 +26,10 @@ export default function GridSetup() {
   const win = useWindowDimensions();
   const images = project?.sources.filter((s) => s.kind === 'image') ?? [];
 
-  const [method, setMethod] = useState<Method>(images.length ? 'image' : 'blank');
+  const pdfs = project?.sources.filter((s) => s.kind === 'pdf') ?? [];
+
+  const [method, setMethod] = useState<Method>(images.length ? 'image' : pdfs.length ? 'pdf' : 'blank');
+  const [pdfId, setPdfId] = useState<string | null>(pdfs[0]?.id ?? null);
   const [rows, setRows] = useState(30);
   const [cols, setCols] = useState(30);
   const [maxColors, setMaxColors] = useState(6);
@@ -37,6 +41,7 @@ export default function GridSetup() {
   const [preview, setPreview] = useState<{ grid: Grid; palette: PaletteColor[] } | null>(null);
 
   const source = images.find((s) => s.id === sourceId) ?? null;
+  const pdf = pdfs.find((s) => s.id === pdfId) ?? null;
 
   if (!project) return null;
 
@@ -75,6 +80,24 @@ export default function GridSetup() {
     } catch (e) {
       Alert.alert('Não foi possível importar', (e as Error).message);
     }
+  };
+
+  const importPdf = async () => {
+    try {
+      const added = (await pickPdfFiles(project.id)).filter((s) => s.kind === 'pdf');
+      if (!added.length) return;
+      update(project.id, (p) => ({ sources: [...p.sources, ...added] }));
+      setPdfId(added[added.length - 1].id);
+    } catch (e) {
+      Alert.alert('Não foi possível importar', (e as Error).message);
+    }
+  };
+
+  // a página escolhida vira uma imagem do projeto e segue o fluxo "Da imagem"
+  const usePdfPage = (image: SourceFile) => {
+    update(project.id, (p) => ({ sources: [...p.sources, image] }));
+    selectSource(image.id);
+    setMethod('image');
   };
 
   const readFromImage = async () => {
@@ -126,8 +149,32 @@ export default function GridSetup() {
         options={[
           { value: 'blank', label: 'Em branco' },
           { value: 'image', label: 'Da imagem' },
+          { value: 'pdf', label: 'Do PDF' },
         ]}
       />
+
+      {method === 'pdf' && (
+        <Card>
+          <Title>PDF da receita</Title>
+          {pdfs.length === 0 && <Muted>Escolha o PDF nos Arquivos. Depois é só tocar na página do gráfico: ela vira uma imagem e você marca a área do gráfico.</Muted>}
+          {pdfs.length > 1 && (
+            <Row>
+              {pdfs.map((s) => (
+                <Pressable key={s.id} onPress={() => setPdfId(s.id)} style={[st.chip, s.id === pdfId && st.chipActive]}>
+                  <Text style={st.chipText} numberOfLines={1}>
+                    {s.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </Row>
+          )}
+          {pdfs.length === 1 && pdf && <Text style={st.chipText}>{pdf.name}</Text>}
+          {pdf && <PdfPagePicker key={pdf.id} pdf={pdf} projectId={project.id} onPicked={usePdfPage} />}
+          <Row>
+            <Button small variant={pdfs.length ? 'secondary' : 'primary'} title={pdfs.length ? 'Outro PDF' : 'Escolher PDF'} onPress={importPdf} />
+          </Row>
+        </Card>
+      )}
 
       {method === 'image' && (
         <Card>
@@ -150,7 +197,7 @@ export default function GridSetup() {
         </Card>
       )}
 
-      {(method === 'blank' || source) && (
+      {(method === 'blank' || (method === 'image' && source)) && (
         <Card>
           <Title>Tamanho</Title>
           <Row>
@@ -234,6 +281,7 @@ const st = StyleSheet.create({
   thumbImg: { width: 80, height: 80, borderRadius: 6, backgroundColor: colors.border },
   previewBox: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
+  chipActive: { borderColor: colors.primary, borderWidth: 2 },
   chipText: { fontSize: 13, color: colors.text },
   dot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: colors.border },
   error: { color: colors.danger, fontSize: 14 },

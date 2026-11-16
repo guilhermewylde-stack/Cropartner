@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Directory, File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 import type { SourceFile } from '../types';
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -73,6 +74,31 @@ export async function takePhoto(projectId: string): Promise<SourceFile[]> {
     .map((a) => persist(projectId, a.uri, a.fileName ?? 'foto.jpg', guessMime(a.fileName ?? 'foto.jpg', a.mimeType), a))
     .filter((x): x is SourceFile => x !== null);
 }
+
+/** Conteúdo de um arquivo do projeto em base64 (para mandar um PDF ao renderizador). */
+export async function readBase64(uri: string): Promise<string> {
+  if (Platform.OS !== 'web') return new File(uri).base64();
+  const blob = await (await fetch(uri)).blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('leitura falhou'));
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Salva na pasta do projeto uma imagem JPEG gerada no app (ex.: página de PDF renderizada). */
+export async function saveJpegBase64(projectId: string, base64: string, name: string, size: { width: number; height: number }): Promise<SourceFile> {
+  const id = uid();
+  const meta = { id, name, kind: 'image' as const, mimeType: 'image/jpeg', width: size.width, height: size.height };
+  if (Platform.OS === 'web') return { ...meta, uri: `data:image/jpeg;base64,${base64}` };
+  const dest = new File(projectDir(projectId), `${id}.jpg`);
+  await dest.write(base64, { encoding: 'base64' });
+  return { ...meta, uri: dest.uri };
+}
+
+/** Importa só PDFs pelos Arquivos do sistema. */
+export const pickPdfFiles = (projectId: string) => pickDocuments(projectId, ['application/pdf']);
 
 export function deleteSourceFile(s: SourceFile) {
   try {
