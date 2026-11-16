@@ -17,7 +17,8 @@ verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3 e 4 est
 
 Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas de tela, commit, push, comentar na issue
 o que entrou / como foi verificado / o que só dá para conferir no aparelho, e fechar a issue. **Pare e me mostre o
-resultado ao fim de cada fatia.** Não crie pull request sem eu pedir.
+resultado ao fim de cada fatia**, e **sempre termine a mensagem com o prompt de continuação** (num bloco para copiar):
+`Leia docs/NEXT_SESSION.md na branch claude/epic-gates-lcp2u2 e continue de onde parou.` Não crie pull request sem eu pedir.
 
 **Ao fim da sessão (ou quando o contexto estiver acabando), atualize este arquivo** com o estado atual — fatias
 prontas, a branch em uso, mudanças na organização do código e no formato dos dados, pendências e dicas novas do
