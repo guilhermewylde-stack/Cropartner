@@ -65,6 +65,14 @@ export interface YarnSettings {
   defaultYarnId?: string | null;
   /** linha de cada cor (id da cor → id da linha cadastrada) */
   colorYarns?: Record<string, string>;
+  /** quanto a usuária tem de cada cor (id da cor → estoque) */
+  stock?: Record<string, YarnStock>;
+}
+
+/** Estoque de uma cor, em novelos (da linha da cor) ou em metros. */
+export interface YarnStock {
+  amount: number;
+  unit: 'skeins' | 'meters';
 }
 
 export interface SourceFile {

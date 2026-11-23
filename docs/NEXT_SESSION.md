@@ -1,16 +1,15 @@
 Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
-verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3, 4, 6 e 7 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
+verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3, 4, 6, 7 e 8 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
 até o spike no iPhone (ver pendências).
 
 **Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e as issues abertas
-(#8 e #9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
+(#9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
 
 **Tarefa desta sessão:** implementar as fatias restantes **na ordem das issues**, uma por vez, com TDD
 (vermelho → verde → refatorar), testando o comportamento pela interface pública dos módulos de `src/lib/`:
 
-8. #8 Linha II (restante pelo progresso, estoque por cor, vai dar / vai faltar).
 9. #9 Backup (exportar/importar projeto ou todos, compartilhar).
 
 Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas de tela, commit, push, comentar na issue
@@ -29,7 +28,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - Linha: lista de compras + "quanto falta" + estoque por cor, linhas cadastradas pela usuária (sem catálogo de marcas).
 - Backup por arquivo, sem nuvem. Pós-v1: IA gratuita no aparelho, depois C2C.
 
-**Como o código está organizado (depois das fatias 1–7):**
+**Como o código está organizado (depois das fatias 1–8):**
 - `src/lib/workOrder.ts` — interface `WorkOrder` (célula ⇄ índice de trabalho, carreiras, sentido) + `straightRows` +
   `workOrderFor` (ponto de troca de técnica). Posição, progresso e linha recebem um `WorkOrder`, nunca o canto/modo.
 - `src/lib/progress.ts` — o progresso é **um número**: pontos feitos na ordem de trabalho (`Project.progress`). O grid
@@ -42,8 +41,8 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   Nomes repetidos ganham número ("Cru 2"). As fatias 7/8 podem contar com nomes únicos na paleta.
 - `src/lib/history.ts` — desfazer como módulo puro. A tela do grid tem **dois históricos**: um do progresso (número) e
   um das edições (`Artwork`); desfazer no modo "Pintar / cores" nunca mexe no progresso, e vice-versa.
-- `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **4** (v4: metros/gramas por novelo saíram do
-  projeto; entraram `yarn.defaultYarnId` e `yarn.colorYarns`). Também `migrateSettingsState` (ajustes, versão **2**:
+- `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **5** (v4: metros/gramas por novelo saíram do
+  projeto; entraram `yarn.defaultYarnId` e `yarn.colorYarns`; v5: `yarn.stock`, estoque por cor em novelos ou metros). Também `migrateSettingsState` (ajustes, versão **2**:
   ganhou `yarns`). Mudou o formato de `Project`? Suba a versão,
   escreva a migração e o teste.
 - `src/lib/crop.ts` — recorte arrastável como funções puras: `dragCrop` (recorte no início do gesto + deslocamento total
@@ -53,7 +52,9 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   metros, `yarn` (linha resolvida), `skeins`, `skeinsToBuy` (teto), `grams`; totais e `colorsWithoutYarn`.
   `yarnForColor` (linha da cor → linha do projeto; linha excluída cai na do projeto), `setColorYarn`, `calibrate`,
   `applyCalibration`, e o cadastro: `Yarn` (nome, metros, gramas opcionais), `addYarn`/`updateYarn`/`removeYarn`,
-  `yarnInputError`. Testes em `__tests__/yarn.test.ts`.
+  `yarnInputError`; e o que falta: `estimateRemaining(..., done)` (só pontos não feitos; ponta só de bloco não
+  começado; cores terminadas ficam com zero), `stockVerdict` (vai dar / vai faltar / sem veredito) e `setStock`.
+  Testes em `__tests__/yarn.test.ts`.
 - `src/components/CropEditor.tsx` — imagem + moldura arrastável + grade. Usa os handlers de responder do React Native
   direto na `View` (sem `PanResponder`, que esbarra na regra de lint `react-hooks/refs`; sem gesture-handler).
 - `src/lib/native/imageGrid.ts` — `readGridFromImage(uri, {rows, cols, crop, maxColors})` recebe **qualquer URI de
@@ -70,7 +71,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - `src/store/projects.ts` (projetos) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded` e `yarns`, as
   linhas cadastradas). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
 - Telas em `src/app/`: `index`, `settings`, `yarns` (Minhas linhas), `project/[id]/index`, `grid-setup`, `grid`,
-  `yarn` (lista de compras, linha do projeto, seletor de linha por cor, calibração, margens, consumo por ponto). A tela do grid tem o modo "Pintar /
+  `yarn` (abas "Lista de compras" / "Vai dar?" — abre em "Vai dar?" quando já há progresso —, linha do projeto, seletor de linha por cor, calibração, margens, consumo por ponto). A tela do grid tem o modo "Pintar /
   cores" (ferramentas Pincel / Balde / Mover; com o Pincel o `GridView` recebe `onPaint`, trava a rolagem e o arrasto
   pinta — um traço inteiro é um passo de desfazer) e o `ColorEditor` (tom por amostras, tons claro/escuro ou hex; nome;
   mesclar; excluir com confirmação **dentro do próprio painel**, sem `Alert`). `grid-setup` tem os modos "Em branco", "Da
@@ -78,7 +79,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   — o "Da imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
   de leitura aparecem no próprio cartão, não em `Alert`.
 
-**Pendências que ficaram das fatias 1–7:**
+**Pendências que ficaram das fatias 1–8:**
 - **Spike da fatia 5 no iPhone (Expo Go)** — única coisa que falta para fechar a #5: abrir um PDF real de receita em
   modo avião, ver se as miniaturas aparecem, quanto demora para a página virar imagem, e se dá para ler um gráfico de
   ~100 colunas. Se a WebView não renderizar (tela "Abrindo o PDF…" até dar o aviso de demora) ou o app fechar com PDF

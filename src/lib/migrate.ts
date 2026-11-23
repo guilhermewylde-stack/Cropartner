@@ -1,7 +1,7 @@
 import type { Project, Yarn } from './types';
 
 /** Versão do formato dos projetos salvos no aparelho. */
-export const PROJECTS_VERSION = 4;
+export const PROJECTS_VERSION = 5;
 
 export interface ProjectsData {
   projects: Record<string, Project>;
@@ -43,6 +43,12 @@ function v3ToV4(project: Record<string, unknown>): Record<string, unknown> {
   return { ...project, yarn: { ...yarn, defaultYarnId: null, colorYarns: {} } };
 }
 
+/** v4 → v5: o projeto ganha o estoque por cor, vazio. */
+function v4ToV5(project: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(project.yarn)) return project;
+  return { ...project, yarn: { ...project.yarn, stock: {} } };
+}
+
 /** Traz o estado salvo por qualquer versão anterior para o formato atual. */
 export function migrateProjectsState(persisted: unknown, fromVersion: number): ProjectsData {
   if (!isRecord(persisted) || !isRecord(persisted.projects)) return { projects: {} };
@@ -53,6 +59,7 @@ export function migrateProjectsState(persisted: unknown, fromVersion: number): P
     if (fromVersion < 2) project = v1ToV2(project);
     if (fromVersion < 3) project = v2ToV3(project);
     if (fromVersion < 4) project = v3ToV4(project);
+    if (fromVersion < 5) project = v4ToV5(project);
     projects[id] = project as unknown as Project;
   }
   return { projects };

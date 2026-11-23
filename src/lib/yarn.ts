@@ -1,5 +1,5 @@
-import { colorStats } from './grid';
-import type { Grid, PaletteColor, StitchType, Yarn, YarnSettings } from './types';
+import { colorStats, rowRuns } from './grid';
+import type { Grid, PaletteColor, StitchType, Yarn, YarnSettings, YarnStock } from './types';
 import type { WorkOrder } from './workOrder';
 
 /**
@@ -22,6 +22,7 @@ export const DEFAULT_YARN: YarnSettings = {
   tailPerColorChangeCm: 15,
   defaultYarnId: null,
   colorYarns: {},
+  stock: {},
 };
 
 export interface ColorYarnEstimate {
@@ -54,6 +55,8 @@ export interface YarnEstimate {
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 const round2 = (v: number) => Math.round(v * 100) / 100;
+/** Novelos inteiros para cobrir `x` novelos: 1,0000001 (erro de conta) é 1, mas 0,0002 de um novelo grande ainda é 1. */
+const wholeSkeins = (x: number) => (x > 0 ? Math.max(1, Math.ceil(x - 1e-6)) : 0);
 
 const findYarn = (yarns: Yarn[], id: string | null | undefined) => (id ? yarns.find((y) => y.id === id) : undefined);
 
@@ -70,14 +73,42 @@ export function setColorYarn(y: YarnSettings, colorId: string, yarnId: string | 
   return { ...y, colorYarns };
 }
 
+type ColorCounts = Map<string, { stitches: number; segments: number }>;
+
 /** Lista de compras: metros por cor (pontos × cm/ponto × (1 + perda) + ponta por bloco) e novelos/gramas pela linha da cor. */
 export function estimateFromGrid(g: Grid, palette: PaletteColor[], order: WorkOrder, y: YarnSettings, yarns: Yarn[] = []): YarnEstimate {
+  return estimateFromCounts(colorStats(g, order), palette, y, yarns);
+}
+
+/**
+ * Quanto falta: o mesmo cálculo, só com os pontos ainda não feitos (`done` = pontos feitos na ordem
+ * de trabalho). A ponta conta só para os blocos ainda não começados. As cores já terminadas ficam
+ * na lista com zero.
+ */
+export function estimateRemaining(g: Grid, palette: PaletteColor[], order: WorkOrder, y: YarnSettings, yarns: Yarn[], done: number): YarnEstimate {
+  const counts: ColorCounts = new Map();
+  for (let w = 1; w <= order.totalRows; w++) {
+    const row = order.row(w);
+    let start = row.startIndex;
+    for (const run of rowRuns(g, row)) {
+      if (run.colorId != null) {
+        const c = counts.get(run.colorId) ?? { stitches: 0, segments: 0 };
+        c.stitches += Math.max(0, Math.min(run.length, start + run.length - done));
+        if (start >= done) c.segments += 1;
+        counts.set(run.colorId, c);
+      }
+      start += run.length;
+    }
+  }
+  return estimateFromCounts(counts, palette, y, yarns);
+}
+
+function estimateFromCounts(counts: ColorCounts, palette: PaletteColor[], y: YarnSettings, yarns: Yarn[]): YarnEstimate {
   const st = y.stitchTypes.find((s) => s.id === y.gridStitchId) ?? y.stitchTypes[0];
   const cmPerStitch = st?.cmPerStitch ?? 0;
-  const stats = colorStats(g, order);
   const perColor: ColorYarnEstimate[] = [];
   for (const color of palette) {
-    const s = stats.get(color.id);
+    const s = counts.get(color.id);
     if (!s) continue;
     const cm = s.stitches * cmPerStitch * (1 + y.wastePercent / 100) + s.segments * y.tailPerColorChangeCm;
     const meters = round2(cm / 100);
@@ -87,8 +118,7 @@ export function estimateFromGrid(g: Grid, palette: PaletteColor[], order: WorkOr
       const exact = meters / yarn.metersPerSkein;
       entry.yarn = yarn;
       entry.skeins = round2(exact);
-      // arredonda antes do teto: 1,0000001 novelo é 1 novelo
-      entry.skeinsToBuy = Math.ceil(Math.round(exact * 1000) / 1000);
+      entry.skeinsToBuy = wholeSkeins(exact);
       if (yarn.gramsPerSkein) entry.grams = round1(exact * yarn.gramsPerSkein);
     }
     perColor.push(entry);
@@ -102,6 +132,38 @@ export function estimateFromGrid(g: Grid, palette: PaletteColor[], order: WorkOr
     totalGrams: withGrams.length ? round1(withGrams.reduce((t, c) => t + c.grams!, 0)) : undefined,
     colorsWithoutYarn: perColor.filter((c) => !c.yarn).length,
   };
+}
+
+// ── Estoque: vai dar / vai faltar ────────────────────────────────────────────────────────────────
+
+export type StockVerdict =
+  | { status: 'unknown'; reason: 'no-stock' | 'no-yarn' }
+  | { status: 'enough'; haveMeters: number; leftoverMeters: number }
+  | { status: 'short'; haveMeters: number; missingMeters: number; skeinsToBuy?: number };
+
+/**
+ * Compara o que falta de uma cor com o estoque dela. Estoque em novelos precisa da linha da cor para
+ * virar metros; sem estoque (ou sem como converter) não há veredito.
+ */
+export function stockVerdict(need: Pick<ColorYarnEstimate, 'meters' | 'yarn'>, stock: YarnStock | undefined): StockVerdict {
+  if (!stock) return { status: 'unknown', reason: 'no-stock' };
+  const perSkein = need.yarn?.metersPerSkein;
+  if (stock.unit === 'skeins' && !(perSkein && perSkein > 0)) return { status: 'unknown', reason: 'no-yarn' };
+  const haveMeters = round2(stock.unit === 'skeins' ? stock.amount * perSkein! : stock.amount);
+  const diff = round2(haveMeters - need.meters);
+  if (diff >= 0) return { status: 'enough', haveMeters, leftoverMeters: diff };
+  const missingMeters = -diff;
+  return perSkein && perSkein > 0
+    ? { status: 'short', haveMeters, missingMeters, skeinsToBuy: wholeSkeins(missingMeters / perSkein) }
+    : { status: 'short', haveMeters, missingMeters };
+}
+
+/** Informa o estoque de uma cor; `null` apaga (volta a "não informado"). */
+export function setStock(y: YarnSettings, colorId: string, stock: YarnStock | null): YarnSettings {
+  const next = { ...y.stock };
+  if (stock) next[colorId] = stock;
+  else delete next[colorId];
+  return { ...y, stock: next };
 }
 
 /** Calibração: a usuária faz N pontos e mede o fio gasto (cm). */
