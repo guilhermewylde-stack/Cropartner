@@ -44,6 +44,15 @@ export interface StitchType {
   cmPerStitch: number; // consumo de fio por ponto, em cm
 }
 
+/** Linha cadastrada pela usuária. O cadastro é do aparelho e vale para todos os projetos. */
+export interface Yarn {
+  id: string;
+  name: string; // ex.: "Anne 500"
+  metersPerSkein: number;
+  /** peso do novelo (opcional): sem ele, a lista mostra só metros e novelos */
+  gramsPerSkein?: number;
+}
+
 export interface YarnSettings {
   /** tipo de ponto usado em cada célula do grid */
   gridStitchId: string;
@@ -52,10 +61,10 @@ export interface YarnSettings {
   wastePercent: number;
   /** fio extra por troca de cor (cm), para arremates/pontas */
   tailPerColorChangeCm: number;
-  /** metros por novelo */
-  metersPerSkein: number;
-  /** gramas por novelo (opcional, só para exibir) */
-  gramsPerSkein?: number;
+  /** linha cadastrada usada pelas cores sem linha própria */
+  defaultYarnId?: string | null;
+  /** linha de cada cor (id da cor → id da linha cadastrada) */
+  colorYarns?: Record<string, string>;
 }
 
 export interface SourceFile {

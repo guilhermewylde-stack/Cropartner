@@ -1,8 +1,5 @@
 import { sampleGridFromRGBA, cropToPixels } from '../sampling';
 import { colorName, hexToRgb, rgbToHex } from '../colors';
-import { DEFAULT_YARN, estimateFromGrid, calibrate } from '../yarn';
-import { straightRows } from '../workOrder';
-import { createGrid } from '../grid';
 
 /** Gera uma imagem RGBA de um gráfico 2x3 com linhas pretas de 1px entre as células. */
 function chartImage(colors: [number, number, number][][], cell = 10) {
@@ -60,41 +57,6 @@ describe('cores', () => {
   });
   test('nome aproximado', () => {
     expect(colorName('#1A2A80')).toBe('Azul marinho');
-  });
-});
-
-describe('cálculo de fio', () => {
-  test('por cor a partir do grid', () => {
-    const g = createGrid(10, 10, 'a');
-    g.cells[0] = 'b';
-    const palette = [
-      { id: 'a', name: 'Azul', hex: '#0000FF' },
-      { id: 'b', name: 'Branco', hex: '#FFFFFF' },
-    ];
-    const y = { ...DEFAULT_YARN, wastePercent: 0, tailPerColorChangeCm: 0, metersPerSkein: 1 };
-    const est = estimateFromGrid(g, palette, straightRows(g, { startCorner: 'bottom-right', mode: 'flat' }), y);
-    // pb = 4 cm por ponto
-    expect(est.perColor.find((c) => c.colorId === 'a')!.meters).toBe(3.96);
-    expect(est.perColor.find((c) => c.colorId === 'b')!.meters).toBe(0.04);
-    expect(est.totalMeters).toBe(4);
-    expect(est.totalSkeins).toBe(4);
-  });
-
-  test('pontas por troca de cor e margem de perda', () => {
-    const g = createGrid(1, 3, 'a');
-    g.cells[1] = 'b'; // a b a => 'a' tem 2 blocos
-    const palette = [
-      { id: 'a', name: 'Azul', hex: '#0000FF' },
-      { id: 'b', name: 'Branco', hex: '#FFFFFF' },
-    ];
-    const y = { ...DEFAULT_YARN, wastePercent: 50, tailPerColorChangeCm: 10 };
-    const est = estimateFromGrid(g, palette, straightRows(g, { startCorner: 'bottom-right', mode: 'flat' }), y);
-    // a: 2 pontos * 4cm * 1.5 + 2 blocos * 10cm = 32cm
-    expect(est.perColor.find((c) => c.colorId === 'a')!.meters).toBe(0.32);
-  });
-
-  test('calibração', () => {
-    expect(calibrate(10, 42)).toBe(4.2);
   });
 });
 

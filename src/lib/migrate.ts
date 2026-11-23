@@ -1,7 +1,7 @@
-import type { Project } from './types';
+import type { Project, Yarn } from './types';
 
 /** Versão do formato dos projetos salvos no aparelho. */
-export const PROJECTS_VERSION = 3;
+export const PROJECTS_VERSION = 4;
 
 export interface ProjectsData {
   projects: Record<string, Project>;
@@ -33,6 +33,16 @@ function v2ToV3(project: Record<string, unknown>): Record<string, unknown> {
   return { ...rest, grid, progress };
 }
 
+/**
+ * v3 → v4: metros e gramas por novelo saem do projeto e passam a vir das linhas cadastradas (ajuste
+ * do aparelho). O projeto guarda só qual linha usa, por padrão e por cor — começa sem nenhuma.
+ */
+function v3ToV4(project: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(project.yarn)) return project;
+  const { metersPerSkein: _m, gramsPerSkein: _g, ...yarn } = project.yarn;
+  return { ...project, yarn: { ...yarn, defaultYarnId: null, colorYarns: {} } };
+}
+
 /** Traz o estado salvo por qualquer versão anterior para o formato atual. */
 export function migrateProjectsState(persisted: unknown, fromVersion: number): ProjectsData {
   if (!isRecord(persisted) || !isRecord(persisted.projects)) return { projects: {} };
@@ -42,7 +52,34 @@ export function migrateProjectsState(persisted: unknown, fromVersion: number): P
     let project = raw;
     if (fromVersion < 2) project = v1ToV2(project);
     if (fromVersion < 3) project = v2ToV3(project);
+    if (fromVersion < 4) project = v3ToV4(project);
     projects[id] = project as unknown as Project;
   }
   return { projects };
+}
+
+/** Versão dos ajustes do aparelho. */
+export const SETTINGS_VERSION = 2;
+
+export interface SettingsData {
+  leftHanded: boolean;
+  yarns: Yarn[];
+}
+
+const isYarn = (v: unknown): v is Yarn =>
+  isRecord(v) &&
+  typeof v.id === 'string' &&
+  typeof v.name === 'string' &&
+  v.name.trim() !== '' &&
+  typeof v.metersPerSkein === 'number' &&
+  v.metersPerSkein > 0 &&
+  (v.gramsPerSkein === undefined || typeof v.gramsPerSkein === 'number');
+
+/** v1 → v2: ganha a lista de linhas cadastradas. Valores corrompidos voltam ao padrão. */
+export function migrateSettingsState(persisted: unknown, _fromVersion: number): SettingsData {
+  const s = isRecord(persisted) ? persisted : {};
+  return {
+    leftHanded: s.leftHanded === true,
+    yarns: Array.isArray(s.yarns) ? s.yarns.filter(isYarn) : [],
+  };
 }

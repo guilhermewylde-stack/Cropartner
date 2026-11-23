@@ -1,4 +1,4 @@
-import { migrateProjectsState, PROJECTS_VERSION } from '../migrate';
+import { migrateProjectsState, migrateSettingsState, PROJECTS_VERSION } from '../migrate';
 
 const prototypeProject = (over: Record<string, unknown> = {}) => ({
   id: 'p1',
@@ -18,8 +18,8 @@ const prototypeProject = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('migração dos projetos salvos', () => {
-  test('a versão atual é 3', () => {
-    expect(PROJECTS_VERSION).toBe(3);
+  test('a versão atual é 4', () => {
+    expect(PROJECTS_VERSION).toBe(4);
   });
 
   test('projeto do protótipo perde os dados de IA e mantém grid e progresso', () => {
@@ -60,12 +60,36 @@ describe('migração dos projetos salvos', () => {
 
   test('estado já na versão atual não é alterado', () => {
     const current = { id: 'p1', name: 'Manta', work: { startCorner: 'bottom-right', mode: 'flat' }, grid: { rows: 1, cols: 1, cells: ['a'] }, progress: 1 };
-    expect(migrateProjectsState({ projects: { p1: current } }, 3).projects.p1).toEqual(current);
+    expect(migrateProjectsState({ projects: { p1: current } }, 4).projects.p1).toEqual(current);
   });
 
   test('estado ausente ou corrompido vira uma lista vazia', () => {
     expect(migrateProjectsState(undefined, 1)).toEqual({ projects: {} });
     expect(migrateProjectsState('lixo', 1)).toEqual({ projects: {} });
     expect(migrateProjectsState({ projects: null }, 1)).toEqual({ projects: {} });
+  });
+});
+
+describe('v3 → v4: linhas cadastradas', () => {
+  test('metros e gramas por novelo saem do projeto; a linha do projeto e das cores começa vazia', () => {
+    const v3 = { id: 'p1', name: 'Manta', progress: 0, yarn: { gridStitchId: 'pb', stitchTypes: [], wastePercent: 15, tailPerColorChangeCm: 15, metersPerSkein: 100, gramsPerSkein: 50 } };
+    const p = migrateProjectsState({ projects: { p1: v3 } }, 3).projects.p1;
+    expect(p.yarn).toEqual({ gridStitchId: 'pb', stitchTypes: [], wastePercent: 15, tailPerColorChangeCm: 15, defaultYarnId: null, colorYarns: {} });
+  });
+});
+
+describe('ajustes do aparelho', () => {
+  test('v1 → v2 ganha a lista de linhas cadastradas, vazia', () => {
+    expect(migrateSettingsState({ leftHanded: true }, 1)).toEqual({ leftHanded: true, yarns: [] });
+  });
+
+  test('estado corrompido volta ao padrão', () => {
+    expect(migrateSettingsState(null, 1)).toEqual({ leftHanded: false, yarns: [] });
+    expect(migrateSettingsState({ leftHanded: 'sim', yarns: 'x' }, 2)).toEqual({ leftHanded: false, yarns: [] });
+  });
+
+  test('linhas inválidas são descartadas', () => {
+    const yarns = [{ id: 'y1', name: 'Anne', metersPerSkein: 500, gramsPerSkein: 145 }, { id: 'y2', name: '', metersPerSkein: 100 }, 'lixo'];
+    expect(migrateSettingsState({ leftHanded: false, yarns }, 2).yarns).toEqual([yarns[0]]);
   });
 });
