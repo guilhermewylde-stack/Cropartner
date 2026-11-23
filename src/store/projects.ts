@@ -31,9 +31,11 @@ interface ProjectsState {
   createProject: (name: string) => Project;
   updateProject: (id: string, patch: Partial<Project> | ((p: Project) => Partial<Project>)) => void;
   deleteProject: (id: string) => void;
+  /** troca a lista inteira (importar backup) */
+  setProjects: (projects: Record<string, Project>) => void;
 }
 
-const uid = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+export const uid = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export const useProjects = create<ProjectsState>()(
   persist(
@@ -62,6 +64,7 @@ export const useProjects = create<ProjectsState>()(
         const delta = typeof patch === 'function' ? patch(cur) : patch;
         set({ projects: { ...get().projects, [id]: { ...cur, ...delta, updatedAt: Date.now() } } });
       },
+      setProjects: (projects) => set({ projects }),
       deleteProject: (id) => {
         const next = { ...get().projects };
         delete next[id];

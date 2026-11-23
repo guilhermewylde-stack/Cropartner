@@ -5,12 +5,14 @@ import { useProject, useProjects } from '../../../store/projects';
 import { Button, Card, Field, Muted, Row, styles, Title } from '../../../components/ui';
 import { deleteSourceFile, pickDocuments, pickImages, takePhoto } from '../../../lib/native/files';
 import type { SourceFile } from '../../../lib/types';
+import { useExportBackup } from '../../../hooks/useBackup';
 import { colors, space } from '../../../theme';
 
 export default function ProjectScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const project = useProject(id);
   const update = useProjects((s) => s.updateProject);
+  const { exportProjects, busy, error: exportError } = useExportBackup();
 
   if (!project) return <Muted style={{ padding: 16 }}>Projeto não encontrado.</Muted>;
 
@@ -87,6 +89,8 @@ export default function ProjectScreen() {
           <Button title="Criar grid" onPress={() => router.push(`/project/${project.id}/grid-setup`)} />
         )}
         <Button variant="secondary" title="Cálculo de linha" onPress={() => router.push(`/project/${project.id}/yarn`)} />
+        <Button small variant="ghost" title="Compartilhar projeto (arquivo)" loading={busy} onPress={() => exportProjects([project.id])} />
+        {exportError && <Muted style={{ color: colors.danger }}>{exportError}</Muted>}
       </Card>
     </ScrollView>
   );

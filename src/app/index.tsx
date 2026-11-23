@@ -75,7 +75,12 @@ export default function Home() {
             </Pressable>
           );
         }}
-        ListFooterComponent={list.length ? <Muted style={{ textAlign: 'center' }}>Segure um projeto para excluir.</Muted> : undefined}
+        ListFooterComponent={
+          <View style={{ gap: space.sm }}>
+            {list.length > 0 && <Muted style={{ textAlign: 'center' }}>Segure um projeto para excluir.</Muted>}
+            <Button variant="ghost" title="Backup e compartilhar" onPress={() => router.push('/backup')} />
+          </View>
+        }
       />
     </View>
   );

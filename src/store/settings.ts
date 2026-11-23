@@ -15,6 +15,7 @@ interface SettingsState {
   addYarn: (input: YarnInput) => Yarn;
   updateYarn: (id: string, input: YarnInput) => void;
   removeYarn: (id: string) => void;
+  setYarns: (yarns: Yarn[]) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -30,6 +31,7 @@ export const useSettings = create<SettingsState>()(
       },
       updateYarn: (id, input) => set({ yarns: updateYarn(get().yarns, id, input) }),
       removeYarn: (id) => set({ yarns: removeYarn(get().yarns, id) }),
+      setYarns: (yarns) => set({ yarns }),
     }),
     {
       name: 'cropartner-settings',

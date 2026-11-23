@@ -1,16 +1,16 @@
 Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
-verticais) → TDD. Grill, PRD e issues já existem; as **fatias 1, 2, 3, 4, 6, 7 e 8 estão prontas e fechadas**; a **fatia 5 (PDF) está implementada**, mas a issue #5 segue aberta
-até o spike no iPhone (ver pendências).
+verticais) → TDD. Grill, PRD e issues já existem; **todas as fatias da v1 (1 a 9) estão implementadas**; as issues #1–#4 e #6–#9 estão fechadas, e a #5 (PDF) segue
+aberta só até o spike no iPhone (ver pendências).
 
-**Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e as issues abertas
-(#9; a #5 só espera o teste no aparelho), que trazem objetivo, critérios de aceitação, dependências e notas de teste de cada fatia.
+**Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e a issue #5.
 
-**Tarefa desta sessão:** implementar as fatias restantes **na ordem das issues**, uma por vez, com TDD
-(vermelho → verde → refatorar), testando o comportamento pela interface pública dos módulos de `src/lib/`:
-
-9. #9 Backup (exportar/importar projeto ou todos, compartilhar).
+**Próximo passo (decidir com o usuário antes de codar):** a v1 está completa no código. O que falta é **testar no
+iPhone pelo Expo Go** (lista em "Pendências") e corrigir o que aparecer — cada correção com teste quando cair num
+módulo de `src/lib/`. Depois disso, o PRD aponta o pós-v1: IA gratuita no aparelho (exige development build e conta
+Apple Developer) e C2C pela interface `WorkOrder`. Não comece nenhum dos dois sem o usuário pedir: vão precisar de
+grill/PRD/issues novos.
 
 Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas de tela, commit, push, comentar na issue
 o que entrou / como foi verificado / o que só dá para conferir no aparelho, e fechar a issue. **Pare e me mostre o
@@ -28,7 +28,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - Linha: lista de compras + "quanto falta" + estoque por cor, linhas cadastradas pela usuária (sem catálogo de marcas).
 - Backup por arquivo, sem nuvem. Pós-v1: IA gratuita no aparelho, depois C2C.
 
-**Como o código está organizado (depois das fatias 1–8):**
+**Como o código está organizado (v1 completa, fatias 1–9):**
 - `src/lib/workOrder.ts` — interface `WorkOrder` (célula ⇄ índice de trabalho, carreiras, sentido) + `straightRows` +
   `workOrderFor` (ponto de troca de técnica). Posição, progresso e linha recebem um `WorkOrder`, nunca o canto/modo.
 - `src/lib/progress.ts` — o progresso é **um número**: pontos feitos na ordem de trabalho (`Project.progress`). O grid
@@ -68,9 +68,19 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   `src/components/PdfHost.tsx` (WebView escondida) / `PdfHost.web.tsx` (iframe, só para o build web) e
   `PdfPagePicker.tsx` (miniaturas em lotes de 12 → toque → página vira JPEG em `sources` com `kind: 'image'`).
   O formato de `Project` não mudou (versão 3).
-- `src/store/projects.ts` (projetos) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded` e `yarns`, as
+- `src/lib/backup.ts` — backup por arquivo JSON `{app:'cropartner', format, projectsVersion, exportedAt, projects,
+  yarns}` (`BACKUP_FORMAT` = 1). `buildBackup` (tira `sources`), `yarnsUsedBy`, `backupFileName`, `parseBackup` (nunca
+  lança; mensagem pronta; projetos antigos passam por `migrateProjectsState`; versão mais nova é rejeitada),
+  `findConflicts`, `applyImport` (substituir / manter os dois / não importar — padrão: não toca no existente) e
+  `mergeYarns`. **Decisão:** imagens/PDF de origem não vão no arquivo (pesado demais para WhatsApp; o grid basta) e
+  "Sou canhota" também não. Se mudar o formato de `Project`, o backup acompanha sozinho via `PROJECTS_VERSION`; só
+  suba `BACKUP_FORMAT` se o envelope mudar.
+- `src/lib/native/backupFile.ts` (grava em `Paths.cache` e abre `expo-sharing`; importa com `DocumentPicker`, tipo
+  `*/*`) e `backupFile.web.ts` (baixa o arquivo — só para testes). `src/hooks/useBackup.ts` (exportar um/todos).
+- `src/store/projects.ts` (projetos; `setProjects` para importar) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded` e `yarns`, as
   linhas cadastradas). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
-- Telas em `src/app/`: `index`, `settings`, `yarns` (Minhas linhas), `project/[id]/index`, `grid-setup`, `grid`,
+- Telas em `src/app/`: `index`, `settings`, `yarns` (Minhas linhas), `backup` (exportar/importar, conflitos na própria
+  tela), `project/[id]/index`, `grid-setup`, `grid`,
   `yarn` (abas "Lista de compras" / "Vai dar?" — abre em "Vai dar?" quando já há progresso —, linha do projeto, seletor de linha por cor, calibração, margens, consumo por ponto). A tela do grid tem o modo "Pintar /
   cores" (ferramentas Pincel / Balde / Mover; com o Pincel o `GridView` recebe `onPaint`, trava a rolagem e o arrasto
   pinta — um traço inteiro é um passo de desfazer) e o `ColorEditor` (tom por amostras, tons claro/escuro ou hex; nome;
@@ -79,7 +89,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   — o "Da imagem" (importar da galeria/Arquivos ali mesmo → tamanho → recorte arrastável → ler → prévia → confirmar); os erros
   de leitura aparecem no próprio cartão, não em `Alert`.
 
-**Pendências que ficaram das fatias 1–8:**
+**Pendências (testar no iPhone):**
 - **Spike da fatia 5 no iPhone (Expo Go)** — única coisa que falta para fechar a #5: abrir um PDF real de receita em
   modo avião, ver se as miniaturas aparecem, quanto demora para a página virar imagem, e se dá para ler um gráfico de
   ~100 colunas. Se a WebView não renderizar (tela "Abrindo o PDF…" até dar o aviso de demora) ou o app fechar com PDF
@@ -94,6 +104,12 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   Mover num gráfico grande com zoom, e o teclado sobre o painel "Editar cor" ao renomear.
 - Fatia 7: projetos salvos antes da v4 perdem o "metros/gramas por novelo" que tinham no projeto (passou a vir da linha
   cadastrada). Ninguém usava ainda, então ficou assim.
+- Fatia 9 no aparelho: a folha de compartilhamento abre com o .json; salvar em Arquivos/iCloud e mandar pelo
+  WhatsApp; importar pelos Arquivos (o WhatsApp às vezes muda o tipo do arquivo — por isso o seletor aceita qualquer
+  tipo); **exportar num iPhone e importar no outro** (critério da issue #9).
+- `expo-sharing` foi adicionado (vem no Expo Go). O `npm install --legacy-peer-deps` reescreve o `package-lock.json`
+  tirando pacotes opcionais de peer (babel preset, metro config, reanimated…); por isso o lock foi editado só com a
+  entrada nova. Se precisar instalar outro pacote, confira o diff do lock antes de commitar.
 - `Alert.alert` não funciona no build web, então fluxos com confirmação não aparecem nas capturas.
 
 **Dicas do ambiente (sessão na nuvem):**

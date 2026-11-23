@@ -37,6 +37,11 @@ export default function Settings() {
         </Muted>
         <Button variant="secondary" title="Gerenciar linhas" onPress={() => router.push('/yarns')} />
       </Card>
+      <Card>
+        <Title>Backup</Title>
+        <Muted>Exportar e importar projetos por arquivo, sem nuvem.</Muted>
+        <Button variant="secondary" title="Backup e compartilhar" onPress={() => router.push('/backup')} />
+      </Card>
     </ScrollView>
   );
 }
