@@ -75,7 +75,7 @@ export default function BackupScreen() {
 
       <Card>
         <Title>Importar</Title>
-        <Muted>Escolha um arquivo .json exportado pelo Cropartner (deste ou de outro aparelho).</Muted>
+        <Muted>Escolha um arquivo .json exportado pelo Fio da Meada (deste ou de outro aparelho).</Muted>
         <Button title="Escolher arquivo" variant={loaded?.ok ? 'secondary' : 'primary'} onPress={pick} />
         {loaded && !loaded.ok && (
           <View style={st.errorBox}>

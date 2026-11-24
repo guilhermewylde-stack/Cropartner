@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Cropartner",
-    "slug": "cropartner",
+    "name": "Fio da Meada",
+    "slug": "fio-da-meada",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cropartner.app",
+      "bundleIdentifier": "com.fiodameada.app",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Usado para importar gráficos de crochê.",
         "NSCameraUsageDescription": "Usado para fotografar gráficos de crochê."
@@ -22,7 +22,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.cropartner.app"
+      "package": "com.fiodameada.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +30,6 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "cropartner"
+    "scheme": "fiodameada"
   }
 }

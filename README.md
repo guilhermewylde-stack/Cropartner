@@ -1,4 +1,4 @@
-# Cropartner
+# Fio da Meada
 
 App de apoio ao crochê para **iOS e Android** (Expo / React Native, TypeScript).
 
@@ -13,8 +13,9 @@ as fatias de trabalho estão nas issues do repositório.
   - *Do PDF*: escolha o PDF da receita, toque na página do gráfico e ela vira uma imagem, que segue o mesmo caminho do *Da imagem*. Funciona sem rede (pdf.js embutido, numa WebView
     escondida). Falta validar no iPhone.
   - *Em branco*: cria um grid para você pintar.
-- **Trocar cores**: segure uma cor da paleta para mudar o tom (o grid inteiro muda junto), renomear, mesclar com
-  outra cor ou excluir. Pincel e balde para pintar.
+- **Editar cores** (modo *Pintar / cores*): pincel (tocar ou arrastar), balde e *Mover* para rolar sem pintar.
+  *Editar cor* troca o tom (amostras, tons mais claros/escuros ou hex — o grid inteiro muda junto), renomeia, mescla
+  com outra cor ou exclui (com confirmação). O desfazer da pintura é separado do desfazer do progresso.
 - **Progresso**: tocar numa célula marca tudo até ali na ordem de trabalho. O botão grande **Até o fim da cor**
   (embaixo, ao alcance do polegar) avança o bloco de cor inteiro; `+1`, `−1`, `Fim da carreira` e `Desfazer` fazem
   os ajustes finos.
@@ -25,15 +26,23 @@ as fatias de trabalho estão nas issues do repositório.
 - **Sentido de trabalho**: o ajuste global **"Sou canhota"** (em Ajustes) define de que lado a carreira 1 começa —
   embaixo à direita para destras, embaixo à esquerda para canhotas — sem espelhar o desenho. Por projeto, dá para
   escolher ida e volta ou sempre no mesmo sentido.
-- **Cálculo de linha**: por cor a partir do grid (pontos × consumo por ponto + margem de perda + pontas por bloco de
-  cor); metros, novelos e gramas. Consumo por ponto editável, com **calibração** (faça N pontos e meça o fio).
+- **Linha**:
+  - *Lista de compras* por cor: metros, novelos a comprar (arredondados para cima) e gramas, pela linha de cada cor.
+  - *Minhas linhas*: cadastro das suas linhas (nome, metros e gramas por novelo), usado por todos os projetos; cada
+    projeto tem uma linha padrão e cada cor pode ter a sua.
+  - *Vai dar?*: quanto falta de cada cor pelo progresso marcado, quanto você tem (novelos ou metros) e o veredito
+    "vai dar · sobram X m" ou "vai faltar X m · compre N novelos".
+  - *Calibração*: faça N pontos, meça o fio e aplique o consumo por ponto.
+- **Backup**: exportar um projeto ou todos num arquivo e compartilhar (Arquivos, WhatsApp, AirDrop); importar de
+  volta ou em outro aparelho, escolhendo o que fazer com projetos repetidos. As imagens/PDF de origem e o ajuste
+  "Sou canhota" não vão no arquivo.
 
 ## Rodando
 
 ```bash
 npm install
 npx expo start        # abra no Expo Go
-npm test              # testes da lógica (grid, posição, cores, leitura de pixels, fio)
+npm test              # testes da lógica (grid, posição, cores, leitura de pixels, linha, backup)
 npm run typecheck
 npm run lint
 ```
@@ -44,8 +53,9 @@ Builds de loja: `npx eas-cli@latest build -p ios` / `-p android`.
 
 - `src/app/` — telas (Expo Router)
 - `src/lib/` — lógica pura e testada: `workOrder.ts` (ordem de trabalho — interface trocável; hoje, carreiras
-  retas), `grid.ts` (posição, pintura), `progress.ts` (marcar/avançar/voltar), `history.ts` (desfazer), `colors.ts`, `sampling.ts` (leitura de pixels), `yarn.ts`
-  (cálculo de linha), `migrate.ts` (migração dos projetos salvos)
-- `src/lib/native/` — integração com módulos nativos (arquivos, imagem, PDF)
+  retas), `grid.ts` (posição, pintura), `progress.ts` (marcar/avançar/voltar), `history.ts` (desfazer), `colors.ts`, `sampling.ts` (leitura de pixels), `palette.ts` (editor de cores), `yarn.ts`
+  (lista de compras, quanto falta, estoque, linhas cadastradas), `backup.ts` (arquivo de backup), `migrate.ts`
+  (migração dos projetos e ajustes salvos)
+- `src/lib/native/` — integração com módulos nativos (arquivos, imagem, PDF, compartilhamento)
 - `src/store/` — projetos e ajustes do aparelho (persistidos no AsyncStorage)
 - `src/components/` — `GridView` (SVG), `ColorEditor`, componentes de UI

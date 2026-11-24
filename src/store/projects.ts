@@ -72,6 +72,7 @@ export const useProjects = create<ProjectsState>()(
       },
     }),
     {
+      // chave do nome antigo do app (Cropartner): mudar apagaria os projetos salvos
       name: 'cropartner-projects',
       version: PROJECTS_VERSION,
       migrate: (persisted, version) => migrateProjectsState(persisted, version),

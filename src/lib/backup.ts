@@ -4,7 +4,7 @@ import type { Project, Yarn } from './types';
 
 /**
  * Backup por arquivo (sem nuvem). O arquivo é JSON:
- * `{ app: 'cropartner', format, projectsVersion, exportedAt, projects: Project[], yarns: Yarn[] }`.
+ * `{ app: 'fio-da-meada', format, projectsVersion, exportedAt, projects: Project[], yarns: Yarn[] }`.
  * - `format` é a versão do envelope; `projectsVersion` é a versão do formato de `Project` (ver `migrate.ts`),
  *   e projetos antigos passam pela mesma migração do armazenamento local.
  * - Os arquivos de origem (imagens/PDF) **não** vão no arquivo: o grid já tem tudo para crochetar, e eles
@@ -13,8 +13,11 @@ import type { Project, Yarn } from './types';
  */
 export const BACKUP_FORMAT = 1;
 
+/** Marca do arquivo. Backups feitos quando o app se chamava Cropartner têm `app: 'cropartner'` e continuam aceitos. */
+const APP_MARKS = ['fio-da-meada', 'cropartner'];
+
 export interface BackupFile {
-  app: 'cropartner';
+  app: 'fio-da-meada';
   format: number;
   projectsVersion: number;
   exportedAt: number;
@@ -26,7 +29,7 @@ export type ParsedBackup = { ok: true; projects: Project[]; yarns: Yarn[]; expor
 
 export function buildBackup(projects: Project[], yarns: Yarn[], now: number): BackupFile {
   return {
-    app: 'cropartner',
+    app: 'fio-da-meada',
     format: BACKUP_FORMAT,
     projectsVersion: PROJECTS_VERSION,
     exportedAt: now,
@@ -56,13 +59,13 @@ const slug = (s: string) =>
 export function backupFileName(projects: Project[], now: number): string {
   const date = new Date(now).toISOString().slice(0, 10);
   const label = projects.length === 1 ? slug(projects[0].name) || 'projeto' : 'backup';
-  return `cropartner-${label}-${date}.json`;
+  return `fio-da-meada-${label}-${date}.json`;
 }
 
 // ── Importar ────────────────────────────────────────────────────────────────────────────────────
 
-const NOT_BACKUP = 'Este arquivo não é um backup do Cropartner.';
-const NEWER = 'Este backup foi feito numa versão mais nova do Cropartner. Atualize o app para importar.';
+const NOT_BACKUP = 'Este arquivo não é um backup do Fio da Meada.';
+const NEWER = 'Este backup foi feito numa versão mais nova do Fio da Meada. Atualize o app para importar.';
 const corrupted = (which: string) => `O arquivo está corrompido (${which}). Nada foi importado.`;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -99,7 +102,7 @@ export function parseBackup(text: string): ParsedBackup {
   } catch {
     return { ok: false, error: NOT_BACKUP };
   }
-  if (!isRecord(raw) || raw.app !== 'cropartner' || !isInt(raw.format, 1) || !isInt(raw.projectsVersion, 1)) return { ok: false, error: NOT_BACKUP };
+  if (!isRecord(raw) || !APP_MARKS.includes(raw.app as string) || !isInt(raw.format, 1) || !isInt(raw.projectsVersion, 1)) return { ok: false, error: NOT_BACKUP };
   if ((raw.format as number) > BACKUP_FORMAT || (raw.projectsVersion as number) > PROJECTS_VERSION) return { ok: false, error: NEWER };
   if (!Array.isArray(raw.projects)) return { ok: false, error: corrupted('lista de projetos') };
   if (raw.projects.length === 0) return { ok: false, error: 'O arquivo não tem nenhum projeto.' };

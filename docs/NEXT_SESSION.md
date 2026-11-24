@@ -1,4 +1,4 @@
-Estou desenvolvendo o **Cropartner**, um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
+Estou desenvolvendo o **Fio da Meada** (antes chamado Cropartner), um app de crochê (Expo SDK 58 + Expo Router + TypeScript, iOS/Android) no
 repositório `guilhermewylde-stack/Cropartner`. O trabalho está na branch `claude/epic-gates-lcp2u2` (continue nela, ou
 na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Pocock: grill → PRD → issues (fatias
 verticais) → TDD. Grill, PRD e issues já existem; **todas as fatias da v1 (1 a 9) estão implementadas**; as issues #1–#4 e #6–#9 estão fechadas, e a #5 (PDF) segue
@@ -19,11 +19,13 @@ entrevista da **rede social** (abaixo) e escrever o PRD dela (`docs/PRD-social.m
   comprado. Sugestão a levar ao PRD: campo "fonte do gráfico" e rever a regra antes de abrir ao público.
 - Formatos: **estante e diário** (feitos / em andamento / quero fazer, registro ao terminar, perfil com estatísticas),
   **seguir e feed de amigas**, **curtir e comentar**. "Página por gráfico" ficou de fora por enquanto.
-- Nome: o usuário escolheu verificar **Fio da Meada**. Busca de 24/11: nenhum app com esse nome nas lojas; existe um
+- Nome: **Fio da Meada** (confirmado em 24/11; app renomeado: `app.json` com slug `fio-da-meada`, scheme `fiodameada`,
+  identificador `com.fiodameada.app`; textos e nome do arquivo de backup). As chaves do AsyncStorage continuam
+  `cropartner-*` de propósito (mudar apagaria os dados), e o backup aceita a marca antiga `app: 'cropartner'`. O
+  repositório no GitHub ainda se chama Cropartner — renomear é decisão do usuário (o GitHub redireciona o link antigo).
+  Histórico da escolha: Busca de 24/11: nenhum app com esse nome nas lojas; existe um
   podcast "Fio da Meada" da Rádio Novelo (categoria diferente, mas aparece primeiro na busca) e uma loja "Fio à
-  Meada" em Portugal. Falta o usuário conferir INPI (classes 9 e 42) e domínio, e **confirmar o nome** antes de
-  renomear o app (nome, slug e identificador no `app.json`; textos "Cropartner" nas telas e no backup — o campo
-  `app: 'cropartner'` do arquivo de backup deve continuar aceito).
+  Meada" em Portugal. O usuário ficou de conferir INPI (classes 9 e 42) e domínio.
 
 **Ainda em aberto (perguntar antes do PRD; minha recomendação entre parênteses):**
 - Servidor (Supabase: Postgres + login + arquivos + regras por linha; plano gratuito; o SDK JS roda no Expo Go).

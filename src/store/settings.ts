@@ -34,6 +34,7 @@ export const useSettings = create<SettingsState>()(
       setYarns: (yarns) => set({ yarns }),
     }),
     {
+      // chave do nome antigo do app (Cropartner): mudar apagaria os ajustes salvos
       name: 'cropartner-settings',
       version: SETTINGS_VERSION,
       migrate: (persisted, version) => migrateSettingsState(persisted, version),

@@ -41,7 +41,7 @@ describe('exportar', () => {
 
   test('o arquivo diz o formato e a versão dos projetos', () => {
     const b = buildBackup([project()], [], 1000);
-    expect(b).toMatchObject({ app: 'cropartner', format: BACKUP_FORMAT, projectsVersion: PROJECTS_VERSION, exportedAt: 1000 });
+    expect(b).toMatchObject({ app: 'fio-da-meada', format: BACKUP_FORMAT, projectsVersion: PROJECTS_VERSION, exportedAt: 1000 });
   });
 
   test('os arquivos de origem (imagens e PDF) não vão no arquivo: só servem no aparelho de origem', () => {
@@ -59,9 +59,9 @@ describe('exportar', () => {
 
   test('nome do arquivo: o do projeto (sem acentos nem símbolos) ou "backup", com a data', () => {
     const now = Date.UTC(2026, 10, 23, 12);
-    expect(backupFileName([project({ name: 'Almofada coração / 2' })], now)).toBe('cropartner-almofada-coracao-2-2026-11-23.json');
-    expect(backupFileName([project(), project({ id: 'p2' })], now)).toBe('cropartner-backup-2026-11-23.json');
-    expect(backupFileName([project({ name: '***' })], now)).toBe('cropartner-projeto-2026-11-23.json');
+    expect(backupFileName([project({ name: 'Almofada coração / 2' })], now)).toBe('fio-da-meada-almofada-coracao-2-2026-11-23.json');
+    expect(backupFileName([project(), project({ id: 'p2' })], now)).toBe('fio-da-meada-backup-2026-11-23.json');
+    expect(backupFileName([project({ name: '***' })], now)).toBe('fio-da-meada-projeto-2026-11-23.json');
   });
 });
 
@@ -74,11 +74,11 @@ describe('importar: arquivos rejeitados com mensagem clara', () => {
   const valid = () => buildBackup([project()], [anne], 1) as unknown as Record<string, unknown>;
 
   test('não é JSON', () => {
-    expect(error('%PDF-1.4 …')).toMatch(/não é um backup do Cropartner/);
+    expect(error('%PDF-1.4 …')).toMatch(/não é um backup do Fio da Meada/);
   });
 
   test('JSON de outro app', () => {
-    expect(error(JSON.stringify({ hello: 'world' }))).toMatch(/não é um backup do Cropartner/);
+    expect(error(JSON.stringify({ hello: 'world' }))).toMatch(/não é um backup do Fio da Meada/);
   });
 
   test('versão mais nova do formato ou dos projetos', () => {
@@ -105,6 +105,11 @@ describe('importar: arquivos rejeitados com mensagem clara', () => {
 });
 
 describe('importar: versão antiga do formato', () => {
+  test('backup feito quando o app se chamava Cropartner continua aceito', () => {
+    const old = { ...buildBackup([project()], [anne], 1), app: 'cropartner' };
+    expect(roundTrip(JSON.stringify(old)).projects[0].name).toBe('Almofada');
+  });
+
   test('projetos salvos numa versão anterior passam pela migração', () => {
     const v3 = {
       ...project(),

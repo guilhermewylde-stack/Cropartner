@@ -15,7 +15,7 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'Cropartner' }} />
+        <Stack.Screen name="index" options={{ title: 'Fio da Meada' }} />
         <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
         <Stack.Screen name="yarns" options={{ title: 'Minhas linhas' }} />
         <Stack.Screen name="backup" options={{ title: 'Backup e compartilhar' }} />
