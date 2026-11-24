@@ -34,6 +34,22 @@ senha):
 npx expo login
 ```
 
+No Windows, o `npx expo login` pode tentar abrir o navegador e fechar com erro (`cmd.exe /c start ... exited with
+non-zero code: 1`). Nesse caso, entre com usuário e senha no terminal:
+
+```bash
+npx expo login -u SEU_USUARIO
+```
+
+Se ainda assim abrir o navegador e falhar, crie um token em expo.dev → Account settings → Access tokens e use na
+janela do PowerShell (vale só para aquela janela; não compartilhe o token):
+
+```bash
+$env:EXPO_TOKEN="cole-o-token-aqui"
+```
+
+Confira com `npx expo whoami` (deve mostrar o seu usuário).
+
 ## 2. Abrir no iPhone
 
 1. iPhone e computador na **mesma rede Wi-Fi**.
