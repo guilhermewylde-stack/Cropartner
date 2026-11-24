@@ -1,13 +1,15 @@
 # Testar o Fio da Meada no iPhone (Expo Go)
 
-O app roda no iPhone pelo **Expo Go**, servido pelo seu computador. Não precisa de conta Apple nem de Xcode.
+O app roda no iPhone pelo **Expo Go**, servido pelo seu computador. Não precisa de conta Apple nem de Xcode, mas
+precisa de uma **conta Expo** (gratuita), usada no computador e no iPhone.
 
 ## 1. Preparar (uma vez)
 
 1. No iPhone, instale o **Expo Go** pela App Store. Se ele disser que o projeto é de outra versão do SDK, me avise: o
    app usa o **SDK 58**.
 2. No computador, instale o **Node.js** (versão LTS, em nodejs.org) e o **Git** (git-scm.com).
-3. Abra o terminal (no Windows: PowerShell) e baixe o projeto:
+3. Crie uma conta gratuita em **expo.dev/signup**. No iPhone, abra o Expo Go, toque no perfil e entre com ela.
+4. Abra o terminal (no Windows: PowerShell) e baixe o projeto:
 
 ```bash
 git clone https://github.com/guilhermewylde-stack/Cropartner.git
@@ -25,6 +27,13 @@ git checkout claude/epic-gates-lcp2u2
 npm install --legacy-peer-deps
 ```
 
+Os avisos amarelos `npm warn deprecated` são normais. Depois, entre na mesma conta Expo no computador (pede usuário e
+senha):
+
+```bash
+npx expo login
+```
+
 ## 2. Abrir no iPhone
 
 1. iPhone e computador na **mesma rede Wi-Fi**.
@@ -36,7 +45,9 @@ npx expo start
 
 3. Aparece um **QR code** no terminal. Aponte a **câmera do iPhone** para ele e toque no aviso para abrir no Expo Go.
 4. No Windows, se o firewall perguntar, permita o Node.js em **redes privadas**.
-5. Não conectou (rede do trabalho, roteador que isola aparelhos)? Pare com `Ctrl+C` e use o túnel:
+5. Erro **"You need to be signed in to Expo Go and Expo CLI"**: falta entrar na mesma conta Expo no computador
+   (`npx expo login`) e no Expo Go. Avisos de atualização do `expo` e do `tsconfig.json` podem ser ignorados.
+6. Não conectou (rede do trabalho, roteador que isola aparelhos)? Pare com `Ctrl+C` e use o túnel:
 
 ```bash
 npx expo start --tunnel
