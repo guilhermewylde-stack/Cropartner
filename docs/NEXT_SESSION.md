@@ -6,11 +6,32 @@ aberta só até o spike no iPhone (ver pendências).
 
 **Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e a issue #5.
 
-**Próximo passo (decidir com o usuário antes de codar):** a v1 está completa no código. O que falta é **testar no
-iPhone pelo Expo Go** (lista em "Pendências") e corrigir o que aparecer — cada correção com teste quando cair num
-módulo de `src/lib/`. Depois disso, o PRD aponta o pós-v1: IA gratuita no aparelho (exige development build e conta
-Apple Developer) e C2C pela interface `WorkOrder`. Não comece nenhum dos dois sem o usuário pedir: vão precisar de
-grill/PRD/issues novos.
+**Próximo passo:** a v1 está completa no código. Ordem combinada: (1) **testar no iPhone pelo Expo Go** (lista em
+"Pendências") e corrigir o que aparecer — cada correção com teste quando cair num módulo de `src/lib/`; (2) terminar a
+entrevista da **rede social** (abaixo) e escrever o PRD dela (`docs/PRD-social.md`) e as issues; só então codar.
+
+**Rede social (pós-v1) — decisões da entrevista de 24/11/2026 (não reabrir):**
+- Ideia do usuário: conta, perfil e compartilhamento de projetos, no estilo dos apps de livros e filmes.
+- Público: **fechado primeiro** (convidadas: o casal e amigas) e **aberto depois**. Abrir ao público e ir para as lojas
+  exige denunciar, bloquear, moderação e excluir conta pelo app (regra da Apple para conteúdo de usuárias), além da
+  LGPD.
+- O que pode ser publicado: **tudo, inclusive o gráfico** (decisão do usuário). Alertei que muitos gráficos vêm de PDF
+  comprado. Sugestão a levar ao PRD: campo "fonte do gráfico" e rever a regra antes de abrir ao público.
+- Formatos: **estante e diário** (feitos / em andamento / quero fazer, registro ao terminar, perfil com estatísticas),
+  **seguir e feed de amigas**, **curtir e comentar**. "Página por gráfico" ficou de fora por enquanto.
+- Nome: o usuário escolheu verificar **Fio da Meada**. Busca de 24/11: nenhum app com esse nome nas lojas; existe um
+  podcast "Fio da Meada" da Rádio Novelo (categoria diferente, mas aparece primeiro na busca) e uma loja "Fio à
+  Meada" em Portugal. Falta o usuário conferir INPI (classes 9 e 42) e domínio, e **confirmar o nome** antes de
+  renomear o app (nome, slug e identificador no `app.json`; textos "Cropartner" nas telas e no backup — o campo
+  `app: 'cropartner'` do arquivo de backup deve continuar aceito).
+
+**Ainda em aberto (perguntar antes do PRD; minha recomendação entre parênteses):**
+- Servidor (Supabase: Postgres + login + arquivos + regras por linha; plano gratuito; o SDK JS roda no Expo Go).
+- Login (código por e-mail; Entrar com a Apple quando for para a loja — obrigatório se houver outro login social).
+- Privacidade padrão de cada projeto (privado; publicar é uma escolha por projeto) e convites (código de convite).
+- Como o app continua funcionando sem internet (tudo local como hoje; a nuvem só publica/sincroniza o que for
+  compartilhado — o backup por arquivo continua).
+- Fotos das peças (novidade: hoje o app não tem foto da peça pronta) e limites de tamanho.
 
 Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas de tela, commit, push, comentar na issue
 o que entrou / como foi verificado / o que só dá para conferir no aparelho, e fechar a issue. **Pare e me mostre o
