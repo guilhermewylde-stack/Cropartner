@@ -4,21 +4,30 @@ na branch que esta sessão designar, partindo dela). Seguimos o fluxo do Matt Po
 verticais) → TDD. Grill, PRD e issues já existem; **todas as fatias da v1 (1 a 9) estão implementadas**; as issues #1–#4 e #6–#9 estão fechadas, e a #5 (PDF) segue
 aberta só até o spike no iPhone (ver pendências).
 
-**Leia primeiro:** `docs/PRD.md` (fonte da verdade), `AGENTS.md` (regras do Expo), `README.md` e a issue #5.
+**Leia primeiro:** `docs/PRD.md` (v1), `docs/PRD-social.md` (rede social), `AGENTS.md` (regras do Expo), `README.md`, a
+issue #5 e as issues #10 a #15.
 
-**Próximo passo:** a v1 está completa no código. Ordem combinada: (1) **testar no iPhone pelo Expo Go** (lista em
-"Pendências") e corrigir o que aparecer — cada correção com teste quando cair num módulo de `src/lib/`; (2) terminar a
-entrevista da **rede social** (abaixo) e escrever o PRD dela (`docs/PRD-social.md`) e as issues; só então codar.
+**Próximo passo:** a v1 está completa no código, e a próxima etapa (rede social) já tem PRD e issues. Ordem
+combinada:
+1. **Testar a v1 no iPhone pelo Expo Go** (lista em "Pendências") e corrigir o que aparecer — cada correção com teste
+   quando cair num módulo de `src/lib/`.
+2. Implementar as fatias da rede social **na ordem das issues**, com TDD, como na v1:
+   - #10 Social 1 — estante, diário e perfil no aparelho (sem conta; dá para começar já).
+   - #11 Social 2 — conta por código de e-mail, convites e perfil (precisa do projeto Supabase do usuário).
+   - #12 Social 3 — publicar, ver e copiar projeto.
+   - #13 Social 4 — seguir, feed e perfil de outra pessoa.
+   - #14 Social 5 — curtir, comentar e avisos.
+   - #15 Social 6 — abrir ao público (só quando o usuário decidir).
 
-**Rede social (pós-v1) — decisões da entrevista de 24/11/2026 (não reabrir):**
-- Ideia do usuário: conta, perfil e compartilhamento de projetos, no estilo dos apps de livros e filmes.
-- Público: **fechado primeiro** (convidadas: o casal e amigas) e **aberto depois**. Abrir ao público e ir para as lojas
-  exige denunciar, bloquear, moderação e excluir conta pelo app (regra da Apple para conteúdo de usuárias), além da
-  LGPD.
-- O que pode ser publicado: **tudo, inclusive o gráfico** (decisão do usuário). Alertei que muitos gráficos vêm de PDF
-  comprado. Sugestão a levar ao PRD: campo "fonte do gráfico" e rever a regra antes de abrir ao público.
-- Formatos: **estante e diário** (feitos / em andamento / quero fazer, registro ao terminar, perfil com estatísticas),
-  **seguir e feed de amigas**, **curtir e comentar**. "Página por gráfico" ficou de fora por enquanto.
+**Rede social — leia `docs/PRD-social.md` (fonte da verdade desta etapa).** Decisões da entrevista de 24/11/2026 (não
+reabrir): Supabase; login por código de e-mail; grupo fechado por convite primeiro, aberto depois; projetos privados
+por padrão e publicar é escolha por projeto; publicar leva tudo, inclusive o gráfico (com campo "fonte do gráfico" e
+revisão antes de abrir ao público); a nuvem guarda só o que é publicado e o perfil (sem sincronizar projetos privados;
+o backup por arquivo continua); formatos: estante e diário, seguir e feed, curtir e comentar.
+Antes da #11: pedir ao usuário que crie o projeto Supabase e informe a URL e a chave pública (vão em
+`EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`, nunca no repositório) e liberar o domínio do projeto na
+rede da sessão na nuvem.
+
 - Nome: **Fio da Meada** (confirmado em 24/11; app renomeado: `app.json` com slug `fio-da-meada`, scheme `fiodameada`,
   identificador `com.fiodameada.app`; textos e nome do arquivo de backup). As chaves do AsyncStorage continuam
   `cropartner-*` de propósito (mudar apagaria os dados), e o backup aceita a marca antiga `app: 'cropartner'`. O
@@ -26,14 +35,6 @@ entrevista da **rede social** (abaixo) e escrever o PRD dela (`docs/PRD-social.m
   Histórico da escolha: Busca de 24/11: nenhum app com esse nome nas lojas; existe um
   podcast "Fio da Meada" da Rádio Novelo (categoria diferente, mas aparece primeiro na busca) e uma loja "Fio à
   Meada" em Portugal. O usuário ficou de conferir INPI (classes 9 e 42) e domínio.
-
-**Ainda em aberto (perguntar antes do PRD; minha recomendação entre parênteses):**
-- Servidor (Supabase: Postgres + login + arquivos + regras por linha; plano gratuito; o SDK JS roda no Expo Go).
-- Login (código por e-mail; Entrar com a Apple quando for para a loja — obrigatório se houver outro login social).
-- Privacidade padrão de cada projeto (privado; publicar é uma escolha por projeto) e convites (código de convite).
-- Como o app continua funcionando sem internet (tudo local como hoje; a nuvem só publica/sincroniza o que for
-  compartilhado — o backup por arquivo continua).
-- Fotos das peças (novidade: hoje o app não tem foto da peça pronta) e limites de tamanho.
 
 Ao fim de cada fatia: `npm test`, `npx tsc --noEmit`, `npm run lint`, capturas de tela, commit, push, comentar na issue
 o que entrou / como foi verificado / o que só dá para conferir no aparelho, e fechar a issue. **Pare e me mostre o

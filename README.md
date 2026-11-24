@@ -2,8 +2,9 @@
 
 App de apoio ao crochê para **iOS e Android** (Expo / React Native, TypeScript).
 
-O app funciona **100% no aparelho**: sem IA, sem login e sem rede. O plano da v1 está em [`docs/PRD.md`](docs/PRD.md) e
-as fatias de trabalho estão nas issues do repositório.
+O app funciona **100% no aparelho**: sem IA, sem login e sem rede. O plano da v1 está em [`docs/PRD.md`](docs/PRD.md); a próxima
+etapa (estante, diário e rede de amigas) está em [`docs/PRD-social.md`](docs/PRD-social.md). As
+fatias de trabalho estão nas issues do repositório.
 
 ## O que já faz
 
