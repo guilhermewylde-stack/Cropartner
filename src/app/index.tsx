@@ -4,6 +4,7 @@ import { Link, router, Stack } from 'expo-router';
 import { useProjects } from '../store/projects';
 import { Button, Card, Field, Muted, Row, styles, Title } from '../components/ui';
 import { deleteProjectFiles } from '../lib/native/files';
+import { EMPTY_SHELF, STATUS_LABEL } from '../lib/shelf';
 import { colors, space } from '../theme';
 
 export default function Home() {
@@ -51,6 +52,11 @@ export default function Home() {
         data={list}
         keyExtractor={(p) => p.id}
         ListHeaderComponent={
+          <View style={{ gap: space.md }}>
+          <Row>
+            <Button title="Estante" variant="secondary" onPress={() => router.push('/shelf')} style={{ flex: 1 }} />
+            <Button title="Meu perfil" variant="secondary" onPress={() => router.push('/profile')} style={{ flex: 1 }} />
+          </Row>
           <Card>
             <Title>Novo projeto</Title>
             <Row>
@@ -58,6 +64,7 @@ export default function Home() {
             </Row>
             <Button title="Criar projeto" onPress={create} />
           </Card>
+          </View>
         }
         ListEmptyComponent={hydrated ? <Muted style={{ textAlign: 'center', marginTop: space.lg }}>Nenhum projeto ainda.</Muted> : undefined}
         renderItem={({ item }) => {
@@ -68,7 +75,7 @@ export default function Home() {
               <Card>
                 <Title>{item.name}</Title>
                 <Muted>
-                  {item.sources.length} arquivo(s)
+                  {STATUS_LABEL[(item.shelf ?? EMPTY_SHELF).status]} · {item.sources.length} arquivo(s)
                   {item.grid ? ` · grid ${item.grid.cols}×${item.grid.rows} · ${total ? Math.round((done / total) * 100) : 0}% feito` : ''}
                 </Muted>
               </Card>

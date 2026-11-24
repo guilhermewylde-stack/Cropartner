@@ -12,7 +12,7 @@ combinada:
 1. **Testar a v1 no iPhone pelo Expo Go** (lista em "Pendências") e corrigir o que aparecer — cada correção com teste
    quando cair num módulo de `src/lib/`.
 2. Implementar as fatias da rede social **na ordem das issues**, com TDD, como na v1:
-   - #10 Social 1 — estante, diário e perfil no aparelho (sem conta; dá para começar já).
+   - ~~#10 Social 1 — estante, diário e perfil no aparelho~~ **pronta e fechada** (24/11).
    - #11 Social 2 — conta por código de e-mail, convites e perfil (precisa do projeto Supabase do usuário).
    - #12 Social 3 — publicar, ver e copiar projeto.
    - #13 Social 4 — seguir, feed e perfil de outra pessoa.
@@ -65,7 +65,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   Nomes repetidos ganham número ("Cru 2"). As fatias 7/8 podem contar com nomes únicos na paleta.
 - `src/lib/history.ts` — desfazer como módulo puro. A tela do grid tem **dois históricos**: um do progresso (número) e
   um das edições (`Artwork`); desfazer no modo "Pintar / cores" nunca mexe no progresso, e vice-versa.
-- `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **5** (v4: metros/gramas por novelo saíram do
+- `src/lib/migrate.ts` — migração dos projetos salvos; versão atual **6** (v6: `shelf` {status want/doing/done, startedAt, finishedAt}, `diary`, `referenceUrl`, `photo`; v4: metros/gramas por novelo saíram do
   projeto; entraram `yarn.defaultYarnId` e `yarn.colorYarns`; v5: `yarn.stock`, estoque por cor em novelos ou metros). Também `migrateSettingsState` (ajustes, versão **2**:
   ganhou `yarns`). Mudou o formato de `Project`? Suba a versão,
   escreva a migração e o teste.
@@ -92,8 +92,13 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
   `src/components/PdfHost.tsx` (WebView escondida) / `PdfHost.web.tsx` (iframe, só para o build web) e
   `PdfPagePicker.tsx` (miniaturas em lotes de 12 → toque → página vira JPEG em `sources` com `kind: 'image'`).
   O formato de `Project` não mudou (versão 3).
+- `src/lib/shelf.ts` — estante: `progressChange` (primeiro ponto → em andamento; último → feito; desfazer reabre;
+  zerar um feito devolve `ask: 'reopen'` e a tela do grid pergunta), `setStatus`, `setShelfDates`, `parseDateBR`/
+  `formatDateBR`, diário (`addDiaryEntry`/`removeDiaryEntry`) e `groupShelf`. **O `updateProject` da store aplica
+  `progressChange` sempre que o progresso muda** — não chame à mão. `src/lib/stats.ts` — `profileStats` (peças, pontos e
+  metros só do que foi feito, cores favoritas agrupadas por `colorName`, tempo médio).
 - `src/lib/backup.ts` — backup por arquivo JSON `{app:'cropartner', format, projectsVersion, exportedAt, projects,
-  yarns}` (`BACKUP_FORMAT` = 1). `buildBackup` (tira `sources`), `yarnsUsedBy`, `backupFileName`, `parseBackup` (nunca
+  yarns}` (`BACKUP_FORMAT` = 1). `buildBackup` (tira `sources` e `photo`), `yarnsUsedBy`, `backupFileName`, `parseBackup` (nunca
   lança; mensagem pronta; projetos antigos passam por `migrateProjectsState`; versão mais nova é rejeitada),
   `findConflicts`, `applyImport` (substituir / manter os dois / não importar — padrão: não toca no existente) e
   `mergeYarns`. **Decisão:** imagens/PDF de origem não vão no arquivo (pesado demais para WhatsApp; o grid basta) e
@@ -104,7 +109,7 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - `src/store/projects.ts` (projetos; `setProjects` para importar) e `src/store/settings.ts` (ajustes do aparelho: `leftHanded` e `yarns`, as
   linhas cadastradas). `src/hooks/useWorkOrder.ts` junta projeto + ajuste global.
 - Telas em `src/app/`: `index`, `settings`, `yarns` (Minhas linhas), `backup` (exportar/importar, conflitos na própria
-  tela), `project/[id]/index`, `grid-setup`, `grid`,
+  tela), `shelf` (Estante, abas por estado), `profile` (Meu perfil, local), `project/[id]/index`, `grid-setup`, `grid`,
   `yarn` (abas "Lista de compras" / "Vai dar?" — abre em "Vai dar?" quando já há progresso —, linha do projeto, seletor de linha por cor, calibração, margens, consumo por ponto). A tela do grid tem o modo "Pintar /
   cores" (ferramentas Pincel / Balde / Mover; com o Pincel o `GridView` recebe `onPaint`, trava a rolagem e o arrasto
   pinta — um traço inteiro é um passo de desfazer) e o `ColorEditor` (tom por amostras, tons claro/escuro ou hex; nome;
@@ -134,6 +139,8 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - `expo-sharing` foi adicionado (vem no Expo Go). O `npm install --legacy-peer-deps` reescreve o `package-lock.json`
   tirando pacotes opcionais de peer (babel preset, metro config, reanimated…); por isso o lock foi editado só com a
   entrada nova. Se precisar instalar outro pacote, confira o diff do lock antes de commitar.
+- Social 1 no aparelho: tirar foto da peça com a câmera, foto da galeria, digitar data DD/MM/AAAA no teclado do
+  iPhone, e a pergunta ao zerar o progresso de um projeto feito (Alert — não aparece no build web).
 - `Alert.alert` não funciona no build web, então fluxos com confirmação não aparecem nas capturas.
 
 **Dicas do ambiente (sessão na nuvem):**
@@ -154,4 +161,6 @@ ambiente — e faça commit e push. A sessão seguinte começa só com "leia `do
 - A captura `fullPage` não pega o conteúdo rolável das telas; para telas longas use um viewport alto
   (`viewport: { width: 390, height: 1400 }`). O arrasto do recorte funciona com `page.mouse` no build web, e
   `readGridFromImage` também roda lá (fonte com `uri` http servida pelo mesmo servidor estático).
+- A store grava com 400 ms de atraso: nos testes com Playwright, espere ~700 ms antes de recarregar a página, senão
+  a última alteração some.
 - No build web, o toque numa célula do grid funciona por clique (`GridView` aceita `offsetX/Y`).

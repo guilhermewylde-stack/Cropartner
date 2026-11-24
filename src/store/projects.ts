@@ -3,6 +3,7 @@ import { persist, createJSONStorage, type StateStorage } from 'zustand/middlewar
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Project } from '../lib/types';
 import { DEFAULT_YARN } from '../lib/yarn';
+import { EMPTY_SHELF, progressChange } from '../lib/shelf';
 import { migrateProjectsState, PROJECTS_VERSION } from '../lib/migrate';
 
 /** Grava no AsyncStorage com debounce: marcar pontos gera muitas atualizações seguidas. */
@@ -54,6 +55,8 @@ export const useProjects = create<ProjectsState>()(
           work: { mode: 'flat' },
           yarn: DEFAULT_YARN,
           progress: 0,
+          shelf: EMPTY_SHELF,
+          diary: [],
         };
         set({ projects: { ...get().projects, [p.id]: p } });
         return p;
@@ -61,7 +64,15 @@ export const useProjects = create<ProjectsState>()(
       updateProject: (id, patch) => {
         const cur = get().projects[id];
         if (!cur) return;
-        const delta = typeof patch === 'function' ? patch(cur) : patch;
+        let delta = typeof patch === 'function' ? patch(cur) : patch;
+        // o progresso move o projeto na estante (primeiro ponto, último ponto, desfazer); zerar um projeto
+        // feito não muda o estado aqui — a tela pergunta (ver `progressChange`)
+        if (delta.progress != null && delta.progress !== cur.progress && !delta.shelf) {
+          const grid = delta.grid ?? cur.grid;
+          const total = grid ? grid.rows * grid.cols : 0;
+          const moved = progressChange(cur.shelf ?? EMPTY_SHELF, cur.progress ?? 0, delta.progress, total, Date.now()).shelf;
+          if (moved !== cur.shelf) delta = { ...delta, shelf: moved };
+        }
         set({ projects: { ...get().projects, [id]: { ...cur, ...delta, updatedAt: Date.now() } } });
       },
       setProjects: (projects) => set({ projects }),

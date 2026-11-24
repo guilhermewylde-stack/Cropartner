@@ -19,6 +19,8 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ title: 'Ajustes' }} />
         <Stack.Screen name="yarns" options={{ title: 'Minhas linhas' }} />
         <Stack.Screen name="backup" options={{ title: 'Backup e compartilhar' }} />
+        <Stack.Screen name="shelf" options={{ title: 'Estante' }} />
+        <Stack.Screen name="profile" options={{ title: 'Meu perfil' }} />
         <Stack.Screen name="project/[id]/index" options={{ title: 'Projeto' }} />
         <Stack.Screen name="project/[id]/grid-setup" options={{ title: 'Criar grid' }} />
         <Stack.Screen name="project/[id]/grid" options={{ title: 'Grid' }} />

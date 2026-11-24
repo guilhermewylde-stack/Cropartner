@@ -17,6 +17,7 @@ import type { WorkOrder } from '../../../lib/workOrder';
 import { defaultStartCorner } from '../../../lib/workOrder';
 import { useWorkOrder } from '../../../hooks/useWorkOrder';
 import { useSettings } from '../../../store/settings';
+import { setStatus } from '../../../lib/shelf';
 import { colors, space } from '../../../theme';
 
 type Mode = 'progress' | 'paint';
@@ -269,8 +270,15 @@ export default function GridScreen() {
         onClose={() => setShowSettings(false)}
         onChange={(work) => update(project.id, { work })}
         onReset={() => {
+          const wasDone = project.shelf?.status === 'done';
           setProgress(0);
           setShowSettings(false);
+          // zerar um projeto feito: a usuária decide se ele volta para "em andamento"
+          if (wasDone)
+            Alert.alert('Projeto feito', 'Este projeto está como feito na estante. Ele volta para "em andamento"?', [
+              { text: 'Manter como feito', style: 'cancel' },
+              { text: 'Voltar para em andamento', onPress: () => update(project.id, (p) => ({ shelf: setStatus(p.shelf, 'doing', Date.now()) })) },
+            ]);
         }}
       />
     </View>

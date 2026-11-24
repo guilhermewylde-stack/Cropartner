@@ -34,6 +34,10 @@ fatias de trabalho estão nas issues do repositório.
   - *Vai dar?*: quanto falta de cada cor pelo progresso marcado, quanto você tem (novelos ou metros) e o veredito
     "vai dar · sobram X m" ou "vai faltar X m · compre N novelos".
   - *Calibração*: faça N pontos, meça o fio e aplique o consumo por ponto.
+- **Estante e diário**: cada projeto fica em *quero fazer*, *em andamento* ou *feito* — o primeiro ponto marcado e o
+  último mudam o estado sozinhos, com as datas. Foto da peça pronta, link de referência e notas no diário. A tela
+  *Estante* mostra os projetos por estado e *Meu perfil* mostra peças feitas, pontos, metros de linha, tempo médio e
+  cores favoritas.
 - **Backup**: exportar um projeto ou todos num arquivo e compartilhar (Arquivos, WhatsApp, AirDrop); importar de
   volta ou em outro aparelho, escolhendo o que fazer com projetos repetidos. As imagens/PDF de origem e o ajuste
   "Sou canhota" não vão no arquivo.
@@ -54,7 +58,7 @@ Builds de loja: `npx eas-cli@latest build -p ios` / `-p android`.
 
 - `src/app/` — telas (Expo Router)
 - `src/lib/` — lógica pura e testada: `workOrder.ts` (ordem de trabalho — interface trocável; hoje, carreiras
-  retas), `grid.ts` (posição, pintura), `progress.ts` (marcar/avançar/voltar), `history.ts` (desfazer), `colors.ts`, `sampling.ts` (leitura de pixels), `palette.ts` (editor de cores), `yarn.ts`
+  retas), `grid.ts` (posição, pintura), `progress.ts` (marcar/avançar/voltar), `history.ts` (desfazer), `colors.ts`, `sampling.ts` (leitura de pixels), `palette.ts` (editor de cores), `shelf.ts` (estante e diário), `stats.ts` (perfil), `yarn.ts`
   (lista de compras, quanto falta, estoque, linhas cadastradas), `backup.ts` (arquivo de backup), `migrate.ts`
   (migração dos projetos e ajustes salvos)
 - `src/lib/native/` — integração com módulos nativos (arquivos, imagem, PDF, compartilhamento)

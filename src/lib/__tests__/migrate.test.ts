@@ -18,8 +18,8 @@ const prototypeProject = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('migração dos projetos salvos', () => {
-  test('a versão atual é 5', () => {
-    expect(PROJECTS_VERSION).toBe(5);
+  test('a versão atual é 6', () => {
+    expect(PROJECTS_VERSION).toBe(6);
   });
 
   test('projeto do protótipo perde os dados de IA e mantém grid e progresso', () => {
@@ -60,7 +60,7 @@ describe('migração dos projetos salvos', () => {
 
   test('estado já na versão atual não é alterado', () => {
     const current = { id: 'p1', name: 'Manta', work: { startCorner: 'bottom-right', mode: 'flat' }, grid: { rows: 1, cols: 1, cells: ['a'] }, progress: 1 };
-    expect(migrateProjectsState({ projects: { p1: current } }, 5).projects.p1).toEqual(current);
+    expect(migrateProjectsState({ projects: { p1: current } }, 6).projects.p1).toEqual(current);
   });
 
   test('estado ausente ou corrompido vira uma lista vazia', () => {
@@ -99,5 +99,25 @@ describe('v4 → v5: estoque por cor', () => {
     const v4 = { id: 'p1', name: 'Manta', progress: 0, yarn: { gridStitchId: 'pb', stitchTypes: [], wastePercent: 15, tailPerColorChangeCm: 15, defaultYarnId: 'y1', colorYarns: { a: 'y2' } } };
     const p = migrateProjectsState({ projects: { p1: v4 } }, 4).projects.p1;
     expect(p.yarn).toEqual({ ...v4.yarn, stock: {} });
+  });
+});
+
+describe('v5 → v6: estante', () => {
+  const base = { id: 'p1', name: 'Manta', createdAt: 1, updatedAt: 99, yarn: { stock: {} } };
+
+  test('sem progresso vai para "quero fazer"', () => {
+    const p = migrateProjectsState({ projects: { p1: { ...base, progress: 0, grid: { rows: 1, cols: 2, cells: ['a', 'a'] } } } }, 5).projects.p1;
+    expect(p.shelf).toEqual({ status: 'want', startedAt: null, finishedAt: null });
+    expect(p.diary).toEqual([]);
+  });
+
+  test('com progresso vai para "em andamento", sem data de começo inventada', () => {
+    const p = migrateProjectsState({ projects: { p1: { ...base, progress: 1, grid: { rows: 1, cols: 2, cells: ['a', 'a'] } } } }, 5).projects.p1;
+    expect(p.shelf).toEqual({ status: 'doing', startedAt: null, finishedAt: null });
+  });
+
+  test('gráfico concluído vai para "feito", com o término na última alteração', () => {
+    const p = migrateProjectsState({ projects: { p1: { ...base, progress: 2, grid: { rows: 1, cols: 2, cells: ['a', 'a'] } } } }, 5).projects.p1;
+    expect(p.shelf).toEqual({ status: 'done', startedAt: null, finishedAt: 99 });
   });
 });

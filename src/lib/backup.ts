@@ -33,7 +33,8 @@ export function buildBackup(projects: Project[], yarns: Yarn[], now: number): Ba
     format: BACKUP_FORMAT,
     projectsVersion: PROJECTS_VERSION,
     exportedAt: now,
-    projects: projects.map((p) => ({ ...p, sources: [] })),
+    // arquivos do aparelho (origem e foto da peça) não viajam
+    projects: projects.map(({ photo: _photo, ...p }) => ({ ...p, sources: [] })),
     yarns,
   };
 }
@@ -90,6 +91,11 @@ function projectProblem(p: Record<string, unknown>): string | null {
   const y = p.yarn;
   if (!isRecord(y) || !isStr(y.gridStitchId) || !isNum(y.wastePercent) || !isNum(y.tailPerColorChangeCm)) return 'linha';
   if (!Array.isArray(y.stitchTypes) || !y.stitchTypes.every((s) => isRecord(s) && isStr(s.id) && isStr(s.name) && isNum(s.cmPerStitch))) return 'linha';
+  const sh = p.shelf;
+  if (!isRecord(sh) || !['want', 'doing', 'done'].includes(sh.status as string)) return 'estante';
+  if (![sh.startedAt, sh.finishedAt].every((d) => d === null || isNum(d))) return 'estante';
+  if (p.diary !== undefined && (!Array.isArray(p.diary) || !p.diary.every((e) => isRecord(e) && isStr(e.id) && isNum(e.date) && isStr(e.text)))) return 'diário';
+  if (p.referenceUrl !== undefined && !isStr(p.referenceUrl)) return 'link de referência';
   if (y.stock !== undefined && (!isRecord(y.stock) || !Object.values(y.stock).every((s) => isRecord(s) && isNum(s.amount) && (s.unit === 'skeins' || s.unit === 'meters')))) return 'estoque';
   return null;
 }
@@ -120,7 +126,8 @@ export function parseBackup(text: string): ParsedBackup {
       return { ok: false, error: corrupted(name) };
     }
     const proj = p as unknown as Project;
-    projects.push({ ...proj, sources: [], createdAt: isNum(proj.createdAt) ? proj.createdAt : 0, updatedAt: isNum(proj.updatedAt) ? proj.updatedAt : 0 });
+    const { photo: _photo, ...clean } = proj;
+    projects.push({ ...clean, sources: [], createdAt: isNum(proj.createdAt) ? proj.createdAt : 0, updatedAt: isNum(proj.updatedAt) ? proj.updatedAt : 0 });
   }
   // linhas inválidas são só descartadas: a mesma limpeza dos ajustes do aparelho
   const yarns = migrateSettingsState({ yarns: raw.yarns }, 2).yarns;

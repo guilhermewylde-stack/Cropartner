@@ -1,7 +1,7 @@
 import type { Project, Yarn } from './types';
 
 /** Versão do formato dos projetos salvos no aparelho. */
-export const PROJECTS_VERSION = 5;
+export const PROJECTS_VERSION = 6;
 
 export interface ProjectsData {
   projects: Record<string, Project>;
@@ -49,6 +49,22 @@ function v4ToV5(project: Record<string, unknown>): Record<string, unknown> {
   return { ...project, yarn: { ...project.yarn, stock: {} } };
 }
 
+/**
+ * v5 → v6: o projeto ganha lugar na estante e o diário. Sem progresso: "quero fazer"; com progresso:
+ * "em andamento"; gráfico concluído: "feito" (término = última alteração). O começo fica em branco: não se sabe.
+ */
+function v5ToV6(project: Record<string, unknown>): Record<string, unknown> {
+  const grid = isRecord(project.grid) ? project.grid : null;
+  const total = grid && typeof grid.rows === 'number' && typeof grid.cols === 'number' ? grid.rows * grid.cols : 0;
+  const progress = typeof project.progress === 'number' ? project.progress : 0;
+  const updatedAt = typeof project.updatedAt === 'number' ? project.updatedAt : null;
+  const shelf =
+    total > 0 && progress >= total
+      ? { status: 'done', startedAt: null, finishedAt: updatedAt }
+      : { status: progress > 0 ? 'doing' : 'want', startedAt: null, finishedAt: null };
+  return { ...project, shelf, diary: Array.isArray(project.diary) ? project.diary : [] };
+}
+
 /** Traz o estado salvo por qualquer versão anterior para o formato atual. */
 export function migrateProjectsState(persisted: unknown, fromVersion: number): ProjectsData {
   if (!isRecord(persisted) || !isRecord(persisted.projects)) return { projects: {} };
@@ -60,6 +76,7 @@ export function migrateProjectsState(persisted: unknown, fromVersion: number): P
     if (fromVersion < 3) project = v2ToV3(project);
     if (fromVersion < 4) project = v3ToV4(project);
     if (fromVersion < 5) project = v4ToV5(project);
+    if (fromVersion < 6) project = v5ToV6(project);
     projects[id] = project as unknown as Project;
   }
   return { projects };

@@ -21,6 +21,10 @@ const project = (over: Partial<Project> = {}): Project => ({
   work: { startCorner: 'top-left', mode: 'same-direction' },
   yarn: { ...DEFAULT_YARN, defaultYarnId: 'y2', colorYarns: { a: 'y1' }, stock: { a: { amount: 2, unit: 'skeins' } } },
   progress: 2,
+  shelf: { status: 'doing', startedAt: 10, finishedAt: null },
+  diary: [{ id: 'd1', date: 20, text: 'Para a vovó' }],
+  referenceUrl: 'https://exemplo.com/receita',
+  photo: { uri: 'file:///aparelho/peca.jpg', width: 100, height: 80 },
   ...over,
 });
 
@@ -34,7 +38,7 @@ describe('exportar', () => {
   test('ida e volta devolve o mesmo projeto (grid, paleta, progresso, sentido, linha e estoque)', () => {
     const p = project();
     const r = roundTrip(JSON.stringify(buildBackup([p], [anne, cisne], 1000)));
-    const { sources: _s, ...rest } = p;
+    const { sources: _s, photo: _photo, ...rest } = p;
     expect(r.projects).toEqual([{ ...rest, sources: [] }]);
     expect(r.yarns).toEqual([anne, cisne]);
   });
@@ -44,8 +48,10 @@ describe('exportar', () => {
     expect(b).toMatchObject({ app: 'fio-da-meada', format: BACKUP_FORMAT, projectsVersion: PROJECTS_VERSION, exportedAt: 1000 });
   });
 
-  test('os arquivos de origem (imagens e PDF) não vão no arquivo: só servem no aparelho de origem', () => {
-    expect(buildBackup([project()], [], 1).projects[0].sources).toEqual([]);
+  test('os arquivos de origem (imagens e PDF) e a foto da peça não vão no arquivo: só servem no aparelho de origem', () => {
+    const p = buildBackup([project()], [], 1).projects[0];
+    expect(p.sources).toEqual([]);
+    expect(p).not.toHaveProperty('photo');
   });
 
   test('o ajuste "Sou canhota" não vai junto', () => {
@@ -92,6 +98,8 @@ describe('importar: arquivos rejeitados com mensagem clara', () => {
     expect(error(JSON.stringify({ ...valid(), projects: [{ ...project(), name: 5 }] }))).toMatch(/corrompido/);
     expect(error(JSON.stringify({ ...valid(), projects: [{ ...project(), palette: [{ id: 'a' }] }] }))).toMatch(/corrompido/);
     expect(error(JSON.stringify({ ...valid(), projects: 'x' }))).toMatch(/corrompido/);
+    expect(error(JSON.stringify({ ...valid(), projects: [{ ...project(), shelf: { status: 'lendo' } }] }))).toMatch(/corrompido/);
+    expect(error(JSON.stringify({ ...valid(), projects: [{ ...project(), diary: [{ id: 1 }] }] }))).toMatch(/corrompido/);
   });
 
   test('arquivo sem projetos', () => {
@@ -117,6 +125,7 @@ describe('importar: versão antiga do formato', () => {
     };
     const r = roundTrip(JSON.stringify({ app: 'cropartner', format: 1, projectsVersion: 3, exportedAt: 1, projects: [v3] }));
     expect(r.projects[0].yarn).toEqual({ gridStitchId: 'pb', stitchTypes: DEFAULT_YARN.stitchTypes, wastePercent: 15, tailPerColorChangeCm: 15, defaultYarnId: null, colorYarns: {}, stock: {} });
+    expect(r.projects[0].shelf).toEqual({ status: 'doing', startedAt: null, finishedAt: null });
     expect(r.yarns).toEqual([]);
   });
 });

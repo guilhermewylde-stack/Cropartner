@@ -6,6 +6,7 @@ import { Button, Card, Field, Muted, Row, styles, Title } from '../../../compone
 import { deleteSourceFile, pickDocuments, pickImages, takePhoto } from '../../../lib/native/files';
 import type { SourceFile } from '../../../lib/types';
 import { useExportBackup } from '../../../hooks/useBackup';
+import { ShelfCard } from '../../../components/ShelfCard';
 import { colors, space } from '../../../theme';
 
 export default function ProjectScreen() {
@@ -92,6 +93,8 @@ export default function ProjectScreen() {
         <Button small variant="ghost" title="Compartilhar projeto (arquivo)" loading={busy} onPress={() => exportProjects([project.id])} />
         {exportError && <Muted style={{ color: colors.danger }}>{exportError}</Muted>}
       </Card>
+
+      <ShelfCard project={project} />
     </ScrollView>
   );
 }

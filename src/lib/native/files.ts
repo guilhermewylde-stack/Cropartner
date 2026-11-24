@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
-import type { SourceFile } from '../types';
+import type { PiecePhoto, SourceFile } from '../types';
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -115,5 +115,31 @@ export function deleteProjectFiles(projectId: string) {
     if (dir.exists) dir.delete();
   } catch {
     // ignora
+  }
+}
+
+/** Foto da peça pronta, pela câmera ou galeria, copiada para a pasta do projeto. null = cancelou. */
+export async function pickPiecePhoto(projectId: string, from: 'camera' | 'library'): Promise<PiecePhoto | null> {
+  if (from === 'camera') {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new Error('Permita o acesso à câmera para fotografar a peça.');
+  }
+  const opts = { mediaTypes: ['images'] as ImagePicker.MediaType[], quality: 0.8, allowsEditing: false };
+  const res = from === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  if (res.canceled || !res.assets[0]) return null;
+  const a = res.assets[0];
+  if (Platform.OS === 'web') return { uri: a.uri, width: a.width, height: a.height };
+  const dest = new File(projectDir(projectId), `peca-${uid()}.jpg`);
+  new File(a.uri).copySync(dest);
+  return { uri: dest.uri, width: a.width, height: a.height };
+}
+
+export function deleteLocalFile(uri: string | undefined) {
+  if (!uri || Platform.OS === 'web') return;
+  try {
+    const f = new File(uri);
+    if (f.exists) f.delete();
+  } catch {
+    // já removido
   }
 }

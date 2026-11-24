@@ -85,6 +85,30 @@ export interface SourceFile {
   height?: number;
 }
 
+/** Estado do projeto na estante. */
+export type ShelfStatus = 'want' | 'doing' | 'done';
+
+export interface ShelfInfo {
+  status: ShelfStatus;
+  /** quando começou (null = não se sabe, ex.: projeto anterior à estante ou peça antiga registrada) */
+  startedAt: number | null;
+  /** quando terminou (só em "feito") */
+  finishedAt: number | null;
+}
+
+export interface DiaryEntry {
+  id: string;
+  date: number;
+  text: string;
+}
+
+/** Foto da peça (arquivo local; não vai no backup). */
+export interface PiecePhoto {
+  uri: string;
+  width?: number;
+  height?: number;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -97,4 +121,11 @@ export interface Project {
   yarn: YarnSettings;
   /** pontos já feitos, contados na ordem de trabalho (ver `lib/progress.ts`) */
   progress: number;
+  /** lugar na estante (ver `lib/shelf.ts`) */
+  shelf: ShelfInfo;
+  /** notas do diário, da mais nova para a mais antiga */
+  diary?: DiaryEntry[];
+  /** link de referência (receita, vídeo, post), útil em "quero fazer" */
+  referenceUrl?: string;
+  photo?: PiecePhoto | null;
 }
